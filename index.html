@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maintenance Tracker</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1F3864">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Maintenance">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F4F6; --surface:#FFFFFF; --ink:#16202E; --muted:#5A6576; --line:#DFE3E8; --line-strong:#B9C0CA;
+  --brand:#1F3864; --brand-text:#1F3864; --header:#1F3864; --accent:#D9480F; --ok:#1E8E3E;
+  --red-bg:#FFD9DE; --red:#9C0006; --red-line:#EFA2AC;
+  --yel-bg:#FFF0B3; --yel:#6B5200; --yel-line:#E5C964;
+  --grn-bg:#D3F2DA; --grn:#0B6623; --grn-line:#8FD3A1;
+  --blu-bg:#DDEBF7; --blu:#1F4E79; --blu-line:#9FC3E6;
+  --org-bg:#FCE4D6; --org:#8A3B0B; --org-line:#EDB48F;
+  --gry-bg:#ECEEF2;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0E131A; --surface:#171E28; --ink:#E7EBF0; --muted:#9AA5B4; --line:#283240; --line-strong:#3B4757;
+    --brand:#2F5AA8; --brand-text:#8DB4F5; --header:#111C30; --accent:#F0682A; --ok:#34A853;
+    --red-bg:#4A1A21; --red:#FFADB7; --red-line:#7A2E38;
+    --yel-bg:#3F3410; --yel:#F3D66B; --yel-line:#6E5A1C;
+    --grn-bg:#163A22; --grn:#95DFA8; --grn-line:#2A6B3D;
+    --blu-bg:#15304B; --blu:#9CC9F2; --blu-line:#2B5580;
+    --org-bg:#43260F; --org:#F6B98B; --org-line:#73441F;
+    --gry-bg:#222B37;
+    --shadow:none;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Barlow,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.4;padding-bottom:calc(76px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--brand-text)}
+h1,h2,h3{margin:0;line-height:1.15}
+h1{font-size:24px;font-weight:700}
+h2{font-size:19px;font-weight:700}
+h3{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.num,.tnum{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+[hidden]{display:none!important}
+
+/* header + nav */
+.top{position:sticky;top:0;z-index:30;background:var(--header);color:#fff;padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
+.top-in{max-width:1040px;margin:0 auto;display:flex;align-items:center;gap:8px}
+.brand{display:flex;align-items:center;gap:8px;color:#fff;text-decoration:none;font-weight:700;font-size:19px;margin-right:auto;white-space:nowrap}
+.brand svg{width:26px;height:26px}
+.sync{display:flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;border-radius:999px;padding:5px 10px;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:#9AA5B4;flex:none}
+.sync[data-s=ok] .dot{background:#4ADE80}
+.sync[data-s=pending] .dot,.sync[data-s=offline] .dot{background:#FBBF24}
+.sync[data-s=syncing] .dot{background:#60A5FA;animation:pulse 1s infinite}
+.sync[data-s=error] .dot,.sync[data-s=conflict] .dot{background:#F87171}
+@keyframes pulse{50%{opacity:.3}}
+.iconbtn{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;color:#fff;text-decoration:none}
+.iconbtn svg{width:22px;height:22px}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 7px;font-size:12px;font-weight:600;color:var(--muted);text-decoration:none}
+.tabs a svg{width:24px;height:24px}
+.tabs a.on{color:var(--brand-text)}
+.tabs a.on svg{stroke-width:2.4}
+svg.i{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+@media (min-width:900px){
+  body{padding-bottom:32px}
+  .tabs{position:static;display:flex;gap:2px;background:transparent;border:0;padding:0;margin-right:8px}
+  .tabs a{flex-direction:row;gap:6px;padding:8px 12px;border-radius:8px;color:rgba(255,255,255,.75);font-size:15px}
+  .tabs a svg{width:20px;height:20px}
+  .tabs a.on{color:#fff;background:rgba(255,255,255,.14)}
+  .brand{margin-right:16px}
+  .top-in .spacer{flex:1}
+}
+@media (max-width:899px){.top-in .spacer{display:none}}
+
+/* layout */
+main{max-width:1040px;margin:0 auto;padding:16px 16px 84px}
+.cell .w{display:none}
+@media (min-width:640px){.cell .w{display:inline}.cell small.w{display:block}.cell .n{display:none}}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:4px 0 14px;flex-wrap:wrap}
+.page-head p{margin:2px 0 0}
+.stack{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.section{margin-top:22px}
+.section > h3{margin-bottom:8px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
+.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line-strong);border-radius:12px}
+@media (min-width:900px){.cols{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:24px;align-items:start}.cols .section:first-child{margin-top:0}}
+
+/* buttons, chips, segmented */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-weight:700;text-decoration:none;text-align:center}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.danger{color:var(--red);border-color:var(--red-line)}
+.btn.ghost{border-color:transparent;background:var(--gry-bg)}
+.btn.sm{min-height:34px;padding:0 12px;font-size:14px;border-radius:8px}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.left{justify-content:flex-start;text-align:left;padding:10px 14px}
+.seg{display:inline-flex;background:var(--gry-bg);border-radius:10px;padding:3px;gap:2px;max-width:100%}
+.seg button{border:0;background:transparent;padding:8px 14px;border-radius:8px;font-weight:600;color:var(--muted);white-space:nowrap}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.seg.full{display:flex}.seg.full button{flex:1;padding:8px 6px}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;text-decoration:none;border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;padding:7px 13px;font-weight:600;font-size:14px;color:var(--ink)}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.chip .c{opacity:.7;margin-left:4px}
+.fab{position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:25;display:flex;align-items:center;gap:6px;height:52px;padding:0 20px 0 16px;border:0;border-radius:26px;background:var(--accent);color:#fff;font-weight:700;font-size:16px;box-shadow:0 6px 16px rgba(0,0,0,.25)}
+.fab svg{width:22px;height:22px}
+@media (min-width:900px){.fab{bottom:28px;right:max(16px,calc(50vw - 504px))}}
+
+/* pills */
+.pill{display:inline-flex;align-items:center;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--gry-bg);color:var(--muted);white-space:nowrap}
+.pill.red{background:var(--red-bg);color:var(--red)}
+.pill.yel{background:var(--yel-bg);color:var(--yel)}
+.pill.grn{background:var(--grn-bg);color:var(--grn)}
+.pill.blu{background:var(--blu-bg);color:var(--blu)}
+.pill.org{background:var(--org-bg);color:var(--org)}
+
+/* stat tiles */
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media (min-width:640px){.tiles{grid-template-columns:repeat(4,1fr)}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow)}
+.tile .lab{font-size:13px;font-weight:600;color:var(--muted)}
+.tile .val{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:32px;font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums}
+.tile.red{border-color:var(--red-line);background:var(--red-bg)}.tile.red .val,.tile.red .lab{color:var(--red)}
+.tile.grn .val{color:var(--grn)}
+.bar{height:8px;border-radius:4px;background:var(--gry-bg);overflow:hidden}
+.bar > span{display:block;height:100%;background:var(--ok);border-radius:4px}
+
+/* floor map */
+.map-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:var(--shadow)}
+.map-top{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);font-weight:600;margin:0 2px 8px}
+.map{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));grid-auto-rows:44px;gap:3px}
+.cell{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;border-radius:6px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);text-decoration:none;font-weight:700;font-size:13px;line-height:1.05;font-variant-numeric:tabular-nums;position:relative}
+.cell small{font-size:10px;font-weight:700;margin-top:2px}
+.cell.s-high{background:var(--red-bg);border-color:var(--red-line);color:var(--red)}
+.cell.s-open{background:var(--yel-bg);border-color:var(--yel-line);color:var(--yel)}
+.cell.s-clear,.cell.s-done{background:var(--grn-bg);border-color:var(--grn-line);color:var(--grn)}
+.cell.s-prog{background:var(--yel-bg);border-color:var(--yel-line);color:var(--yel)}
+.cell.s-none{background:var(--surface);color:var(--ink)}
+.cell.area{border-style:dashed;font-size:11px;font-weight:600;text-align:center;padding:0 2px}
+.cell.area.s-none{background:var(--gry-bg);color:var(--muted)}
+.deco{display:flex;align-items:center;justify-content:center;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted);font-weight:600}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px;border:1px solid var(--line-strong)}
+@media (min-width:640px){.map{grid-auto-rows:58px;gap:5px}.cell{font-size:17px}.cell small{font-size:12px}.cell.area{font-size:13px}}
+
+/* issue cards */
+.issues{display:flex;flex-direction:column;gap:8px}
+.issue{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--line-strong);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+.issue.p-High{border-left-color:var(--red)}
+.issue.p-Low{border-left-color:var(--line)}
+.issue.done{opacity:.6}
+.issue.done .itext{text-decoration:line-through}
+.ibody{flex:1;min-width:0;display:block;text-align:left;border:0;background:transparent;padding:10px 12px}
+.itags{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.rtag{font-weight:700;font-size:13px;padding:1px 7px;border-radius:6px;background:var(--brand);color:#fff}
+.days{margin-left:auto;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+.itext{display:block;margin:5px 0 2px;font-size:16px;font-weight:600}
+.imeta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:var(--muted)}
+.imeta b{font-weight:700;color:var(--ink);opacity:.75}
+.quick{flex:none;width:54px;border:0;border-left:1px solid var(--line);background:transparent;color:var(--ok);display:grid;place-items:center}
+.quick svg{width:24px;height:24px}
+.group-head{display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px}
+.group-head a{font-weight:700;font-size:16px;text-decoration:none;color:var(--ink)}
+.group-head .c{font-size:13px;color:var(--muted);font-weight:600}
+details.done-list summary{cursor:pointer;color:var(--muted);font-weight:600;margin:12px 0 8px;font-size:14px}
+
+/* search */
+.search{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);font-size:16px}
+
+/* room page */
+.room-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.room-head h1{font-size:28px}
+.room-head .sub{font-size:14px;color:var(--muted);font-weight:600}
+.nav-arrows{margin-left:auto;display:flex;gap:6px}
+.nav-arrows a{display:grid;place-items:center;width:40px;height:40px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);text-decoration:none;color:var(--ink);font-size:20px;font-weight:700}
+.back{display:inline-flex;align-items:center;gap:4px;font-weight:600;text-decoration:none;margin-bottom:6px;font-size:15px}
+.summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.summary-row .tile .val{font-size:26px}
+
+/* checklist */
+.insp-head{display:grid;gap:10px}
+.insp-fields{display:grid;grid-template-columns:1.2fr 1.2fr .8fr;gap:8px}
+.insp-fields label{margin:0}
+.prog{display:flex;align-items:center;gap:10px}
+.prog .bar{flex:1;height:10px;border-radius:5px}
+.prog strong{font-variant-numeric:tabular-nums;min-width:76px;text-align:right}
+.chk-sec{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-top:12px;overflow:hidden;box-shadow:var(--shadow)}
+.chk-sec header{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--gry-bg)}
+.chk-sec header h3{color:var(--ink);font-size:14px}
+.chk-sec header .c{font-size:13px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.chk-sec header .btn{margin-left:auto}
+.chk{display:flex;align-items:center;gap:12px;padding:8px 6px 8px 12px;border-top:1px solid var(--line);min-height:50px;cursor:pointer;user-select:none}
+.chk:first-of-type{border-top:0}
+.box{flex:none;width:28px;height:28px;border-radius:7px;border:2px solid var(--line-strong);display:grid;place-items:center;font-weight:800;font-size:15px;color:#fff}
+.chk.v-ok .box{background:var(--ok);border-color:var(--ok)}
+.chk.v-ok .box::after{content:"✓"}
+.chk.v-na .box{background:var(--gry-bg);border-color:var(--line-strong);color:var(--muted);font-size:9px}
+.chk.v-na .box::after{content:"N/A"}
+.chk.v-flag .box{background:var(--red);border-color:var(--red);color:var(--surface)}
+.chk.v-flag .box::after{content:"!"}
+.chk .lbl{flex:1;min-width:0}
+.chk .lbl small{display:block;color:var(--muted);font-size:13px;margin-top:1px}
+.chk .lbl small.iss{color:var(--red);font-weight:600}
+.chk.v-na .lbl{color:var(--muted)}
+.more{flex:none;width:40px;height:40px;border:0;background:transparent;border-radius:8px;color:var(--muted);display:grid;place-items:center}
+.more svg{width:22px;height:22px}
+
+/* list rows */
+.list{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.lrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line);text-decoration:none;color:var(--ink);width:100%;background:transparent;border-left:0;border-right:0;border-bottom:0;text-align:left;min-height:52px}
+.lrow:first-child{border-top:0}
+.lrow .rn{font-weight:700;font-size:17px;width:44px;font-variant-numeric:tabular-nums}
+.lrow .grow{flex:1;min-width:0}
+.lrow .bar{margin-top:5px;height:6px}
+.lrow .meta{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.lrow .val{font-weight:700;font-variant-numeric:tabular-nums}
+.lrow .val.set{color:var(--grn)}
+
+/* projects table */
+.tbl-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+table.grid{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
+table.grid th,table.grid td{border-bottom:1px solid var(--line);border-left:1px solid var(--line);padding:0;text-align:center;white-space:nowrap}
+table.grid th{font-size:12px;font-weight:700;color:var(--muted);padding:8px 6px;background:var(--gry-bg);vertical-align:bottom;white-space:normal;min-width:66px;line-height:1.15}
+table.grid th small{display:block;font-weight:600;margin-top:3px;color:var(--ink)}
+table.grid th:first-child,table.grid td:first-child{position:sticky;left:0;z-index:1;border-left:0;background:var(--surface);font-weight:700;min-width:56px}
+table.grid th:first-child{background:var(--gry-bg)}
+table.grid td a{color:var(--ink);text-decoration:none;display:block;padding:10px 6px}
+table.grid tr:last-child td{border-bottom:0}
+.pc{display:block;width:100%;min-width:66px;height:42px;border:0;background:transparent;font-weight:600;font-size:13px;color:var(--muted)}
+.pc.set{background:var(--grn-bg);color:var(--grn)}
+.pc.na{background:var(--gry-bg)}
+.due-over{background:var(--red-bg);color:var(--red);font-weight:700}
+.due-soon{background:var(--yel-bg);color:var(--yel);font-weight:700}
+td.due{padding:0 8px;font-size:13px}
+
+/* parts */
+.part{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow)}
+.part .grow{flex:1;min-width:0;text-align:left;border:0;background:transparent;padding:0}
+.part .name{font-weight:700;display:block}
+.part .sub{font-size:13px;color:var(--muted)}
+.part.installed{opacity:.55}
+.part.installed .name{text-decoration:line-through}
+.stbtn{flex:none;border:0;border-radius:999px;padding:7px 12px;font-weight:700;font-size:13px;min-width:84px}
+
+/* forms + sheet */
+label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 4px}
+label > input,label > select,label > textarea{margin-top:4px}
+input[type=text],input[type=date],input[type=number],input[type=password],input:not([type]),select,textarea{display:block;width:100%;font-size:16px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-weight:500}
+textarea{resize:vertical;min-height:70px}
+input[type=date]{min-height:44px}
+.radios{display:flex;background:var(--gry-bg);border-radius:10px;padding:3px;gap:2px;margin-top:4px}
+.radios label{flex:1;margin:0;text-align:center;font-size:14px;font-weight:600;color:var(--muted)}
+.radios input{position:absolute;opacity:0;pointer-events:none}
+.radios span{display:block;padding:9px 4px;border-radius:8px;white-space:nowrap}
+.radios input:checked + span{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.radios input:focus-visible + span{outline:2px solid var(--brand-text)}
+.form-actions{display:flex;gap:8px;margin-top:18px}
+.form-actions .primary{flex:1}
+.scrim{position:fixed;inset:0;background:rgba(8,12,20,.5);z-index:50}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:51;max-height:90vh;overflow:auto;background:var(--surface);border-radius:18px 18px 0 0;padding:10px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+.sheet .grab{width:40px;height:5px;border-radius:3px;background:var(--line-strong);margin:0 auto 10px}
+.sheet-head{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+.sheet-head h2{flex:1}
+.sheet-head .x{border:0;background:var(--gry-bg);width:34px;height:34px;border-radius:50%;font-size:18px;line-height:1;flex:none}
+@media (min-width:640px){.sheet{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:min(540px,94vw);border-radius:16px;padding:18px 20px 20px}.sheet .grab{display:none}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));z-index:60;background:#16202E;color:#fff;border-radius:10px;padding:10px 14px;display:flex;gap:14px;align-items:center;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,.3);max-width:calc(100vw - 32px)}
+.toast button{border:0;background:transparent;color:#8DB4F5;font-weight:700;padding:0}
+@media (min-width:900px){.toast{bottom:28px}}
+.note-box{border-radius:10px;padding:10px 12px;font-size:14px;background:var(--blu-bg);color:var(--blu);margin-top:10px}
+.note-box.warn{background:var(--yel-bg);color:var(--yel)}
+.note-box.err{background:var(--red-bg);color:var(--red)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.kv dt{color:var(--muted);font-weight:600}.kv dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.welcome{max-width:560px;margin:20px auto}
+.welcome p{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#/map">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#fff" fill-opacity=".14"/><path fill="#fff" d="M6 7h20v4H6zM22 11h4v9h-4zM6 21h20v4H6z"/><rect x="7" y="13" width="4" height="6" rx="1" fill="#F0682A"/></svg>
+      <span>Maintenance</span>
+    </a>
+    <nav class="tabs" id="tabs" aria-label="Main">
+      <a href="#/map" data-tab="map"><svg class="i" viewBox="0 0 24 24"><path d="M3 4h18v5H3zM16 9h5v6h-5zM3 15h18v5H3z"/></svg>Map</a>
+      <a href="#/issues" data-tab="issues"><svg class="i" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.3 5.3L3.5 17.5a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l5.9-5.9a4 4 0 0 0 5.3-5.3l-2.6 2.6-2.3-.6-.6-2.3z"/></svg>Issues</a>
+      <a href="#/inspect" data-tab="inspect"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 13l2 2 4-4"/></svg>Inspect</a>
+      <a href="#/projects" data-tab="projects"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17.5l2 2 4-4"/></svg>Projects</a>
+      <a href="#/parts" data-tab="parts"><svg class="i" viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg>Parts</a>
+    </nav>
+    <span class="spacer"></span>
+    <a class="sync" id="sync" href="#/settings" data-s="off"><i class="dot"></i><span id="syncText">This device</span></a>
+    <a class="iconbtn" href="#/settings" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg></a>
+  </div>
+</header>
+
+<main id="view"></main>
+
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></section>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+'use strict';
+/* ================= Fixed hotel data ================= */
+const range=(a,b)=>Array.from({length:b-a+1},(_,i)=>String(a+i));
+const ROOMS=[...range(103,112),...range(114,122),...range(201,212),...range(214,222)];
+const COMMON=['Pool','Guest Laundry','Reception/Lobby','Breakfast Area','Business Center','Stairs','Exterior/Grounds','Parking Lot'];
+const ORDER=[...ROOMS,...COMMON];
+function wing(r){const n=+r%100;if(r==='201'||r==='202')return 'West wing';if(n>=3&&n<=10)return 'South wing';if(n>=11&&n<=17)return 'East wing';return 'North wing';}
+const floorName=r=>r[0]==='1'?'1st floor':'2nd floor';
+
+const CHECKLIST=[
+ ['Doors',['Door knobs work properly','Deadbolt works properly','Peephole clean','Threshold secure','Door stop','Adjoining door deadbolt working','Rate card on door','Fire evacuation map on door','Door closures work properly']],
+ ['Closet / Vanity Area',['Clothes hanger / rack secure','Hangers – correct number to standard (4)','Hanger hooks replaced if necessary','Vanity top – repair small defects','Light switch cover secure','Vanity lights secure','Luggage rack in place and in good shape']],
+ ['Bathroom',['Toilet in proper working condition','Toilet securely fastened','Toilet seals – check for leaks, caulking','Shower head works properly','Shower curtain secure – all hooks in place','Check grout and caulking on tub and shower','Toilet tissue holder secure','Towel rack secure','Vanity top – repair small defects','Sink caulking – repair if necessary','Check floor/tile for stains or chips','Check non-slip surface in tub or shower','Clean debris from tub drain','Soap dish clean and not loose','Exhaust fan working – clean if necessary','Robe hook secure','Chrome in good shape','Door frames in good shape and not rusty','Door knobs tight','Mirror secure and in good shape']],
+ ['Bedding',['Bed frame – must be secure','Turn mattress if on wrong quarter','Headboards – centered on bed','Check bed boxes and mattresses','Check mattresses and mattress pads for stains']],
+ ['Furniture',['All furniture inspected – repair/touch-up','Drawer guides (PB Blaster Dry Film Lube)','Sofa cushion – note for any replacement','All legs sturdy – repair any defects','Drawer handles and knobs secure']],
+ ['Windows and Curtains',['Check window tracks – clean/in working condition','Screens present and in good condition','Glass not cracked','Seals not broken','Lock mechanism in working order','Caulking around window – replace if necessary','Check windows for moisture','Secure drapery rod and repair curtains if needed','All curtain hooks in place and properly hung']],
+ ['Walls and Ceiling',['Check for cracks/separation','Check for mildew','Vinyl and paint touch-up if necessary']],
+ ['Telephone and Alarm Clock',['Dialing instructions in place','Room number/phone number correct on face plate','Outside lines working','Alarm clock working and set; replace batteries if needed']],
+ ['Heating / Cooling (HVAC/PTAC)',['Thermostat and fan operating','Filter clean – replace if needed','Knob/buttons working properly','Grill clean and dust free','Caulking around sleeve / no air gaps / no moisture','Temperature set to Auto and seasonal temp. setting']],
+ ['Television(s)',['Stations programmed correctly','Picture has good reception, color','Remote controls are in working order']],
+];
+const ITEMS=[];CHECKLIST.forEach(([sec,items],s)=>items.forEach(label=>ITEMS.push({sec,s,label,i:ITEMS.length})));
+const SECTION_AREA={'Doors':'Door/Lock','Closet / Vanity Area':'Bedroom','Bathroom':'Bathroom','Bedding':'Bedroom','Furniture':'Furniture','Windows and Curtains':'Window','Walls and Ceiling':'Bedroom','Telephone and Alarm Clock':'Electrical','Heating / Cooling (HVAC/PTAC)':'HVAC','Television(s)':'Electrical'};
+
+const PROJECTS=[
+ {k:'rollers',label:'Shower rollers & hardware',short:'Shower rollers'},
+ {k:'handles',label:'Shower handle covers',short:'Handle covers',hint:'Locknut? Teflon tape? Loctite'},
+ {k:'crank',label:'Window crank system',short:'Window crank'},
+ {k:'winlock',label:'Window lock works',short:'Window lock'},
+ {k:'debris',label:'Window debris cleaned',short:'Window debris'},
+ {k:'filter',label:'AC / heat filter',short:'AC filter'},
+ {k:'deadbolt',label:'Deadbolt (rooms missing one)',short:'Deadbolt'},
+ {k:'fan',label:'Bath fan working',short:'Bath fan'},
+];
+const AREAS=['Bathroom','Bedroom','Door/Lock','Window','HVAC','Electrical','Plumbing','Furniture','Exterior','Other'];
+const STATUSES=['Open','Waiting on Part','Monitor','Done'];
+const PRIORITIES=['High','Normal','Low'];
+const PART_STATUS=['Need','Ordered','Have','Installed'];
+const PRI_RANK={High:0,Normal:1,Low:2};
+
+/* map: [col,row,colspan,rowspan,kind,id,label] — matches the paper floor plan, north up */
+const MAP=[];
+const M=(c,r,id,cs=1,rs=1,kind='room',label)=>MAP.push({c,r,cs,rs,kind,id,label:label||id});
+M(1,1,'Pool',2,2,'area','Pool');
+['122','121','120','119'].forEach((id,k)=>M(3+k,1,id));M(7,1,'118',3);
+M(10,1,'Stairs',1,2,'area','Stairs');
+['222','221','220','219'].forEach((id,k)=>M(3+k,2,id));M(7,2,'218',3);
+M(7,3,'Guest Laundry',2,1,'area','Laundry ↓');
+[['217','117'],['216','116'],['215','115'],['214','114'],['212','112']].forEach(([a,b],k)=>{M(9,3+k,a);M(10,3+k,b);});
+M(1,8,'201');M(2,8,'202');M(9,8,'211');M(10,8,'111');
+M(1,9,'Reception/Lobby',2,2,'area','Lobby');
+range(203,210).forEach((id,k)=>M(3+k,9,id));
+range(103,110).forEach((id,k)=>M(3+k,10,id));
+MAP.push({c:3,r:4,cs:6,rs:3,kind:'deco',label:'Courtyard'});
+
+/* ================= Storage ================= */
+const LS={data:'mt.data.v1',meta:'mt.meta.v1',sync:'mt.sync.v1',prefs:'mt.prefs.v1'};
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
+let DB=null;
+let META=lsGet(LS.meta,{dirty:false,sha:null,lastSync:null});
+let SYNC=lsGet(LS.sync,null);
+let PREFS=Object.assign({initials:'',mapMode:'issues',roomTab:'issues',issueFilter:'open',issueGroup:'room',quarter:'',inspFilter:'all',hideInstalled:false},lsGet(LS.prefs,{}));
+try{const raw=lsGet(LS.data,null);DB=raw?normalize(raw):null;}catch(e){DB=null;}
+PREFS.quarter='';
+const savePrefs=()=>lsSet(LS.prefs,PREFS);
+
+function blankDB(){return {version:1,nextId:1,nextPartId:1,filterInterval:90,issues:[],parts:[],projects:{},pm:{},updated:null};}
+function normalize(d){
+  if(!d||typeof d!=='object'||!Array.isArray(d.issues))throw new Error("That file isn't tracker data.");
+  const o=Object.assign(blankDB(),d);
+  o.issues=d.issues.filter(Boolean).map(i=>({id:Number(i.id)||0,room:String(i.room??''),found:i.found||'',area:i.area||'',issue:i.issue||'',priority:PRIORITIES.includes(i.priority)?i.priority:'Normal',status:STATUSES.includes(i.status)?i.status:'Open',tools:i.tools||'',buy:i.buy||'',done:i.done||'',notes:i.notes||'',pm:i.pm||null}));
+  o.parts=(Array.isArray(d.parts)?d.parts:[]).filter(Boolean).map((p,k)=>({id:Number(p.id)||k+1,item:p.item||'',qty:p.qty??'',for:p.for||'',status:PART_STATUS.includes(p.status)?p.status:'Need',cost:p.cost??'',notes:p.notes||''}));
+  o.projects=d.projects&&typeof d.projects==='object'?d.projects:{};
+  o.pm=d.pm&&typeof d.pm==='object'?d.pm:{};
+  o.filterInterval=Number(d.filterInterval)||90;
+  o.nextId=Math.max(Number(d.nextId)||1,...o.issues.map(i=>i.id+1),1);
+  o.nextPartId=Math.max(Number(d.nextPartId)||1,...o.parts.map(p=>p.id+1),1);
+  return o;
+}
+function persist(){lsSet(LS.data,DB);lsSet(LS.meta,META);}
+function commit(msg){DB.updated=new Date().toISOString();META.dirty=true;persist();scheduleSync();render();if(msg)toast(msg);}
+
+/* ================= Helpers ================= */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const isoOf=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const todayISO=()=>isoOf(new Date());
+const isDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'');
+const parseISO=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+const daysBetween=(a,b)=>Math.round((parseISO(b)-parseISO(a))/864e5);
+const addDays=(s,n)=>{const d=parseISO(s);d.setDate(d.getDate()+n);return isoOf(d);};
+function fmtDate(s,yr){if(!isDate(s))return s||'';const[y,m,d]=s.split('-');return `${+m}/${+d}`+(yr?`/${y.slice(2)}`:'');}
+function fmtTS(ts){if(!ts)return 'unknown';const d=new Date(ts);return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});}
+const pct=x=>Math.round(x*100)+'%';
+const isRoom=id=>ROOMS.includes(id);
+const placeLabel=id=>isRoom(id)?'Room '+id:id;
+const ordIdx=id=>{const k=ORDER.indexOf(id);return k<0?999:k;};
+const curQ=()=>{const d=new Date();return `${d.getFullYear()}-Q${Math.floor(d.getMonth()/3)+1}`;};
+const viewQ=()=>PREFS.quarter||curQ();
+const qLabel=q=>q.replace('-',' ');
+const isOpen=i=>i.status!=='Done';
+function daysOpen(i){if(!isDate(i.found))return '';return Math.max(0,daysBetween(i.found,isDate(i.done)?i.done:todayISO()));}
+const stCls=s=>({Open:'yel','Waiting on Part':'org',Monitor:'blu',Done:'grn'}[s]||'');
+const partCls=s=>({Need:'red',Ordered:'yel',Have:'grn',Installed:''}[s]||'');
+const sortIssues=(a,b)=>(isOpen(b)-isOpen(a))||(PRI_RANK[a.priority]-PRI_RANK[b.priority])||(ordIdx(a.room)-ordIdx(b.room))||(a.id-b.id);
+const svgCheck='<svg class="i" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const svgMore='<svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>';
+const svgPlus='<svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
+
+function roomIssues(id){return DB.issues.filter(i=>i.room===id);}
+function issueState(id){const o=roomIssues(id).filter(isOpen);if(o.some(i=>i.priority==='High'))return 'high';return o.length?'open':'clear';}
+function pmRec(q,room){return (DB.pm[q]||{})[room]||null;}
+function pmCount(q,room){const r=pmRec(q,room);if(!r||!r.v)return 0;let n=0;for(let i=0;i<ITEMS.length;i++)if(r.v[i])n++;return n;}
+const pmPct=(q,room)=>pmCount(q,room)/ITEMS.length;
+function pmState(q,room){const p=pmPct(q,room);return p>=1?'done':p>0?'prog':'none';}
+const pmStateLabel={done:'Done',prog:'In progress',none:'Not started'};
+const pmStateCls={done:'grn',prog:'yel',none:''};
+function ensurePM(q,room){DB.pm[q]=DB.pm[q]||{};const r=DB.pm[q][room]=DB.pm[q][room]||{date:'',by:'',v:{},n:{}};r.v=r.v||{};r.n=r.n||{};return r;}
+function touchPM(r){if(!r.date)r.date=todayISO();if(!r.by&&PREFS.initials)r.by=PREFS.initials;}
+function proj(room){return DB.projects[room]||{};}
+function projDone(room){const p=proj(room);return PROJECTS.filter(x=>p[x.k]).length;}
+function filterDue(room){const f=proj(room).filter;if(!isDate(f))return null;return addDays(f,DB.filterInterval);}
+function dueCls(due){if(!due)return '';const d=daysBetween(todayISO(),due);return d<0?'due-over':d<=14?'due-soon':'';}
+const projDisp=v=>!v?'—':isDate(v)?fmtDate(v):v;
+
+/* ================= Router + render ================= */
+function route(){const h=location.hash.replace(/^#\/?/,'')||'map';const[page,...rest]=h.split('/');return {page,arg:decodeURIComponent(rest.join('/'))};}
+const VIEW=document.getElementById('view');
+function render(){
+  const {page,arg}=route();
+  document.querySelectorAll('#tabs a').forEach(a=>a.classList.toggle('on',a.dataset.tab===(page==='room'?'map':page)));
+  const y=window.scrollY;
+  let html;
+  if(page==='settings')html=renderSettings();
+  else if(!DB)html=renderWelcome();
+  else if(page==='room'&&ORDER.includes(arg))html=renderRoom(arg);
+  else if(page==='issues')html=renderIssues();
+  else if(page==='inspect')html=renderInspect();
+  else if(page==='projects')html=renderProjects();
+  else if(page==='parts')html=renderParts();
+  else html=renderMap();
+  VIEW.innerHTML=html;
+  if(page==='issues')renderIssueList();
+  window.scrollTo(0,y);
+  updateSyncBadge();
+}
+window.addEventListener('hashchange',()=>{closeSheet();render();window.scrollTo(0,0);});
+
+/* ---------- Welcome ---------- */
+function renderWelcome(){return `<section class="card welcome">
+  <h1>Set up the tracker</h1>
+  <p>Your maintenance data isn't stored in this website's code. It lives on this device, and you can sync it through a private GitHub repository so your phone and computer always match.</p>
+  <div class="stack">
+    <a class="btn primary" href="#/settings">Connect GitHub sync (recommended)</a>
+    <label class="btn" style="margin:0;color:var(--ink);font-size:16px">Load a data file (.json)<input type="file" accept=".json,application/json" data-change="import-file" hidden></label>
+    <button class="btn" data-act="start-blank">Start with an empty tracker</button>
+  </div></section>`;}
+
+/* ---------- Map ---------- */
+function renderMap(){
+  const mode=PREFS.mapMode,q=curQ();
+  const open=DB.issues.filter(isOpen);
+  let tiles;
+  if(mode==='issues'){
+    const hi=open.filter(i=>i.priority==='High').length;
+    tiles=[['Open issues',open.length,''],['High priority',hi,hi?'red':''],['Waiting on part',open.filter(i=>i.status==='Waiting on Part').length,''],['Rooms with issues',new Set(open.map(i=>i.room).filter(isRoom)).size,'']];
+  }else{
+    const st=ROOMS.map(r=>pmState(q,r));
+    const avg=ROOMS.reduce((s,r)=>s+pmPct(q,r),0)/ROOMS.length;
+    tiles=[['Rooms done',`${st.filter(s=>s==='done').length}<small class="muted" style="font-size:18px">/${ROOMS.length}</small>`,'grn'],['In progress',st.filter(s=>s==='prog').length,''],['Not started',st.filter(s=>s==='none').length,''],[qLabel(q)+' overall',pct(avg),'']];
+  }
+  const cells=MAP.map(m=>{
+    const style=`grid-column:${m.c}/span ${m.cs};grid-row:${m.r}/span ${m.rs}`;
+    if(m.kind==='deco')return `<div class="deco" style="${style}">${m.label}</div>`;
+    let s,sub='';
+    if(mode==='issues'){s=issueState(m.id);const n=roomIssues(m.id).filter(isOpen).length;if(n)sub=`<small>${n}<span class="w"> open</span></small>`;}
+    else if(m.kind==='room'){s=pmState(q,m.id);const pp=pct(pmPct(q,m.id));sub=s==='done'?`<small><span class="n">✓</span><span class="w">${pp}</span></small>`:s==='prog'?`<small>${pp}</small>`:`<small class="w">${pp}</small>`;}
+    else s='none';
+    const tab=mode==='issues'||m.kind!=='room'?'issues':'inspection';
+    return `<a class="cell ${m.kind==='area'?'area':''} s-${s}" style="${style}" href="#/room/${encodeURIComponent(m.id)}" data-act="open-room" data-room="${esc(m.id)}" data-tab="${tab}">${esc(m.label)}${sub}</a>`;
+  }).join('');
+  const legend=mode==='issues'
+    ?`<span><i style="background:var(--red-bg);border-color:var(--red-line)"></i>High priority open</span><span><i style="background:var(--yel-bg);border-color:var(--yel-line)"></i>Open issues</span><span><i style="background:var(--grn-bg);border-color:var(--grn-line)"></i>All clear</span>`
+    :`<span><i style="background:var(--grn-bg);border-color:var(--grn-line)"></i>Done</span><span><i style="background:var(--yel-bg);border-color:var(--yel-line)"></i>In progress</span><span><i></i>Not started</span>`;
+  let side='';
+  if(mode==='issues'){
+    const hi=open.filter(i=>i.priority==='High').sort(sortIssues);
+    const commons=COMMON.filter(c=>!MAP.some(m=>m.id===c)).map(c=>{const n=roomIssues(c).filter(isOpen).length;return `<a class="chip" href="#/room/${encodeURIComponent(c)}" data-act="open-room" data-room="${esc(c)}" data-tab="issues">${esc(c)}${n?`<span class="c">${n}</span>`:''}</a>`;}).join('');
+    side=`<div class="section"><h3>High priority</h3>${hi.length?`<div class="issues">${hi.map(i=>issueCard(i)).join('')}</div>`:'<div class="empty">No high-priority issues open.</div>'}</div>
+      <div class="section"><h3>Other areas</h3><div class="row">${commons}</div></div>`;
+  }else{
+    const todo=ROOMS.filter(r=>pmState(q,r)!=='done');
+    side=`<div class="section"><h3>Still to inspect · ${qLabel(q)}</h3>${todo.length?`<div class="row">${todo.map(r=>`<a class="chip" href="#/room/${r}" data-act="open-room" data-room="${r}" data-tab="inspection">${r}${pmState(q,r)==='prog'?`<span class="c">${pct(pmPct(q,r))}</span>`:''}</a>`).join('')}</div>`:'<div class="empty">Every room is inspected this quarter.</div>'}</div>`;
+  }
+  return `<div class="page-head"><div><h1>Floor map</h1><p class="muted small">Outer ring = 1st floor · inner ring = 2nd floor. Tap a room.</p></div>
+    <div class="seg" role="tablist"><button class="${mode==='issues'?'on':''}" data-act="map-mode" data-v="issues">Issues</button><button class="${mode==='insp'?'on':''}" data-act="map-mode" data-v="insp">Inspection ${qLabel(q).split(' ')[1]}</button></div></div>
+    <div class="cols"><div>
+      <div class="tiles">${tiles.map(([l,v,c])=>`<div class="tile ${c}"><div class="lab">${l}</div><div class="val">${v}</div></div>`).join('')}</div>
+      <div class="map-wrap" style="margin-top:12px"><div class="map-top"><span>N ↑</span><span>→ Back lot parking · Boulder Creek path</span></div><div class="map">${cells}</div><div class="legend">${legend}</div></div>
+    </div><div>${side}</div></div>
+    <button class="fab" data-act="new-issue">${svgPlus}Issue</button>`;
+}
+
+/* ---------- Issue cards + list ---------- */
+function issueCard(i,showRoom=true){
+  const done=i.status==='Done',d=daysOpen(i);
+  const meta=[i.tools&&`<span><b>Tools/parts</b> ${esc(i.tools)}</span>`,i.buy&&`<span><b>Buy</b> ${esc(i.buy)}</span>`,i.notes&&`<span>${esc(i.notes)}</span>`].filter(Boolean).join('');
+  return `<article class="issue p-${esc(i.priority)} ${done?'done':''}">
+    <button class="ibody" data-act="edit-issue" data-id="${i.id}">
+      <span class="itags">${showRoom?`<span class="rtag">${esc(i.room)}</span>`:''}<span class="pill ${stCls(i.status)}">${esc(i.status)}</span>${i.priority!=='Normal'?`<span class="pill ${i.priority==='High'?'red':''}">${esc(i.priority)}</span>`:''}${i.area?`<span class="pill">${esc(i.area)}</span>`:''}<span class="days">${done?'Done '+fmtDate(i.done):d!==''?d+'d open':''}</span></span>
+      <span class="itext">${esc(i.issue)}</span>${meta?`<span class="imeta">${meta}</span>`:''}
+    </button>${done?'':`<button class="quick" data-act="issue-done" data-id="${i.id}" aria-label="Mark done" title="Mark done">${svgCheck}</button>`}
+  </article>`;
+}
+const ISSUE_FILTERS=[['open','Open',isOpen],['high','High',i=>isOpen(i)&&i.priority==='High'],['waiting','Waiting on part',i=>i.status==='Waiting on Part'],['monitor','Monitor',i=>i.status==='Monitor'],['done','Done',i=>i.status==='Done'],['all','All',()=>true]];
+let SEARCH='';
+function renderIssues(){
+  const f=PREFS.issueFilter;
+  return `<div class="page-head"><div><h1>Issue log</h1><p class="muted small">${DB.issues.filter(isOpen).length} open · ${DB.issues.filter(i=>!isOpen(i)).length} done</p></div>
+    <div class="seg"><button class="${PREFS.issueGroup==='room'?'on':''}" data-act="issue-group" data-v="room">By room</button><button class="${PREFS.issueGroup==='tool'?'on':''}" data-act="issue-group" data-v="tool">By tool</button></div></div>
+    <div class="chips">${ISSUE_FILTERS.map(([k,l,fn])=>`<button class="chip ${f===k?'on':''}" data-act="issue-filter" data-v="${k}">${l}<span class="c">${DB.issues.filter(fn).length}</span></button>`).join('')}</div>
+    <input class="search" style="margin-top:10px" type="search" placeholder="Search issues, rooms, tools…" value="${esc(SEARCH)}" data-input="search" aria-label="Search issues">
+    <div id="issueList"></div>
+    <button class="fab" data-act="new-issue">${svgPlus}Issue</button>`;
+}
+function renderIssueList(){
+  const el=document.getElementById('issueList');if(!el)return;
+  const fn=(ISSUE_FILTERS.find(x=>x[0]===PREFS.issueFilter)||ISSUE_FILTERS[0])[2];
+  const s=SEARCH.trim().toLowerCase();
+  const list=DB.issues.filter(fn).filter(i=>!s||[i.room,i.issue,i.tools,i.buy,i.notes,i.area,i.status].join(' ').toLowerCase().includes(s)).sort(sortIssues);
+  if(!list.length){el.innerHTML=`<div class="empty" style="margin-top:16px">${s?'No issues match that search.':'Nothing here.'}</div>`;return;}
+  const groups=new Map();
+  for(const i of list){const k=PREFS.issueGroup==='tool'?(i.tools||'No tool listed'):i.room;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(i);}
+  let keys=[...groups.keys()];
+  if(PREFS.issueGroup==='room')keys.sort((a,b)=>ordIdx(a)-ordIdx(b));else keys.sort((a,b)=>(a==='No tool listed')-(b==='No tool listed')||a.localeCompare(b));
+  el.innerHTML=keys.map(k=>{const g=groups.get(k);const head=PREFS.issueGroup==='room'?`<a href="#/room/${encodeURIComponent(k)}" data-act="open-room" data-room="${esc(k)}" data-tab="issues">${esc(placeLabel(k))} ›</a>`:`<span style="font-weight:700">${esc(k)}</span>`;
+    return `<div class="group-head">${head}<span class="c">${g.length}</span></div><div class="issues">${g.map(i=>issueCard(i,PREFS.issueGroup!=='room')).join('')}</div>`;}).join('');
+}
+
+/* ---------- Room page ---------- */
+function renderRoom(id){
+  const room=isRoom(id);const q=viewQ();
+  const tab=room?PREFS.roomTab:'issues';
+  const iss=roomIssues(id).sort(sortIssues);const open=iss.filter(isOpen);
+  const list=room?ROOMS:COMMON;const k=list.indexOf(id);
+  const prev=list[(k-1+list.length)%list.length],next=list[(k+1)%list.length];
+  let body='';
+  if(tab==='issues'){
+    const done=iss.filter(i=>!isOpen(i));
+    body=`${open.length?`<div class="issues">${open.map(i=>issueCard(i,false)).join('')}</div>`:'<div class="empty">No open issues here.</div>'}
+      <button class="btn primary" style="width:100%;margin-top:12px" data-act="new-issue" data-room="${esc(id)}">${svgPlus.replace('class="i"','class="i" width="20" height="20"')} Add issue</button>
+      ${done.length?`<details class="done-list"><summary>Completed (${done.length})</summary><div class="issues">${done.map(i=>issueCard(i,false)).join('')}</div></details>`:''}`;
+  }else if(tab==='inspection')body=renderChecklist(id,q);
+  else body=renderRoomProjects(id);
+  const sub=room?`${floorName(id)} · ${wing(id)}`:'Common area';
+  const summary=room?`<div class="summary-row">
+      <div class="tile ${open.some(i=>i.priority==='High')?'red':''}"><div class="lab">Open issues</div><div class="val">${open.length}</div></div>
+      <div class="tile"><div class="lab">${qLabel(q)} inspection</div><div class="val">${pct(pmPct(q,id))}</div></div>
+      <div class="tile"><div class="lab">Projects</div><div class="val">${projDone(id)}<small class="muted" style="font-size:16px">/8</small></div></div></div>
+    <div class="seg full" style="margin-bottom:14px">${[['issues',`Issues${open.length?` (${open.length})`:''}`],['inspection','Inspection'],['projects','Projects']].map(([t,l])=>`<button class="${tab===t?'on':''}" data-act="room-tab" data-v="${t}">${l}</button>`).join('')}</div>`:'';
+  return `<a class="back" href="#/map">‹ Map</a>
+    <div class="room-head"><div><h1>${esc(placeLabel(id))}</h1><div class="sub">${sub}</div></div>
+      <div class="nav-arrows"><a href="#/room/${encodeURIComponent(prev)}" aria-label="Previous">‹</a><a href="#/room/${encodeURIComponent(next)}" aria-label="Next">›</a></div></div>
+    ${summary}${body}`;
+}
+function quarterOptions(){
+  const qs=new Set([curQ(),...Object.keys(DB.pm)]);
+  return [...qs].sort().reverse().map(q=>`<option value="${q}" ${q===viewQ()?'selected':''}>${qLabel(q)}${q===curQ()?' (current)':''}</option>`).join('');
+}
+function renderChecklist(room,q){
+  const r=pmRec(q,room)||{v:{},n:{}};const v=r.v||{},n=r.n||{};
+  const c=pmCount(q,room);
+  const linked={};DB.issues.forEach(i=>{if(i.room===room&&i.pm&&i.pm.q===q)(linked[i.pm.i]=linked[i.pm.i]||[]).push(i);});
+  const secs=CHECKLIST.map(([sec,items],s)=>{
+    const its=ITEMS.filter(x=>x.s===s);const done=its.filter(x=>v[x.i]).length;
+    return `<section class="chk-sec"><header><h3>${esc(sec)}</h3><span class="c">${done}/${its.length}</span>${done<its.length?`<button class="btn sm" data-act="pm-sec" data-s="${s}">All ✓</button>`:''}</header>
+      ${its.map(x=>{const val=v[x.i]||'';const cls=val==='✓'?'v-ok':val==='N/A'?'v-na':val==='!'?'v-flag':'';
+        const li=(linked[x.i]||[]);
+        const subs=(n[x.i]?`<small>${esc(n[x.i])}</small>`:'')+li.map(i=>`<small class="iss">Issue #${i.id} · ${esc(i.status)}</small>`).join('');
+        return `<div class="chk ${cls}" data-act="pm-tap" data-i="${x.i}" role="checkbox" aria-checked="${val?'true':'false'}" tabindex="0"><span class="box"></span><span class="lbl">${esc(x.label)}${subs}</span><button class="more" data-act="pm-more" data-i="${x.i}" aria-label="More options">${svgMore}</button></div>`;}).join('')}
+    </section>`;}).join('');
+  return `<div class="card insp-head">
+      <div class="insp-fields">
+        <label>Quarter<select data-change="quarter">${quarterOptions()}</select></label>
+        <label>Date inspected<input type="date" value="${esc(r.date||'')}" data-change="pm-date" data-room="${room}"></label>
+        <label>By<input type="text" value="${esc(r.by||'')}" placeholder="${esc(PREFS.initials||'ZN')}" maxlength="6" autocapitalize="characters" data-change="pm-by" data-room="${room}"></label>
+      </div>
+      <div class="prog"><div class="bar"><span style="width:${c/ITEMS.length*100}%"></span></div><strong>${c} / ${ITEMS.length}</strong></div>
+      <div class="row">${c<ITEMS.length?`<button class="btn sm" data-act="pm-all">Mark all remaining ✓</button>`:'<span class="pill grn">Inspection complete</span>'}<span class="muted small">Tap an item to check it. Use ⋯ for N/A, notes, or to log an issue.</span></div>
+    </div>${secs}`;
+}
+function renderRoomProjects(room){
+  const p=proj(room);const due=filterDue(room);
+  return `<div class="list">${PROJECTS.map(pr=>{const v=p[pr.k]||'';
+    const extra=pr.k==='filter'&&due?`<span class="pill ${dueCls(due)==='due-over'?'red':dueCls(due)==='due-soon'?'yel':''}">Next due ${fmtDate(due,1)}</span>`:pr.hint?`<span class="muted small">${esc(pr.hint)}</span>`:'';
+    return `<button class="lrow" data-act="proj-edit" data-room="${room}" data-k="${pr.k}"><span class="grow"><span style="font-weight:600">${esc(pr.label)}</span><br>${extra}</span><span class="val ${v?'set':''}">${esc(projDisp(v))}</span></button>`;}).join('')}</div>
+    <label>Project notes for this room<textarea data-change="proj-notes" data-room="${room}" placeholder="e.g. needs 2 rollers, crank stripped">${esc(p.notes||'')}</textarea></label>`;
+}
+
+/* ---------- Inspect overview ---------- */
+function renderInspect(){
+  const q=viewQ();const f=PREFS.inspFilter;
+  const st=Object.fromEntries(ROOMS.map(r=>[r,pmState(q,r)]));
+  const counts={done:0,prog:0,none:0};ROOMS.forEach(r=>counts[st[r]]++);
+  const avg=ROOMS.reduce((s,r)=>s+pmPct(q,r),0)/ROOMS.length;
+  const rows=ROOMS.filter(r=>f==='all'||st[r]===f);
+  const nextUp=ROOMS.find(r=>st[r]==='prog')||ROOMS.find(r=>st[r]==='none');
+  return `<div class="page-head"><div><h1>Quarterly inspection</h1><p class="muted small">Guest Room Preventative Maintenance · ${ITEMS.length} items per room</p></div>
+      <label style="margin:0;min-width:160px">Quarter<select data-change="quarter">${quarterOptions()}</select></label></div>
+    <div class="tiles">
+      <div class="tile grn"><div class="lab">Rooms done</div><div class="val">${counts.done}<small class="muted" style="font-size:18px">/${ROOMS.length}</small></div></div>
+      <div class="tile"><div class="lab">In progress</div><div class="val">${counts.prog}</div></div>
+      <div class="tile"><div class="lab">Not started</div><div class="val">${counts.none}</div></div>
+      <div class="tile"><div class="lab">Overall</div><div class="val">${pct(avg)}</div></div>
+    </div>
+    ${nextUp?`<a class="btn primary" style="width:100%;margin-top:12px" href="#/room/${nextUp}" data-act="open-room" data-room="${nextUp}" data-tab="inspection">${st[nextUp]==='prog'?'Continue':'Start'} next room: ${nextUp}</a>`:''}
+    <div class="chips" style="margin-top:14px">${[['all','All',ROOMS.length],['none','Not started',counts.none],['prog','In progress',counts.prog],['done','Done',counts.done]].map(([k,l,n])=>`<button class="chip ${f===k?'on':''}" data-act="insp-filter" data-v="${k}">${l}<span class="c">${n}</span></button>`).join('')}</div>
+    <div class="list" style="margin-top:10px">${rows.map(r=>{const rec=pmRec(q,r)||{};const p=pmPct(q,r);
+      return `<a class="lrow" href="#/room/${r}" data-act="open-room" data-room="${r}" data-tab="inspection"><span class="rn">${r}</span><span class="grow"><span class="pill ${pmStateCls[st[r]]}">${pmStateLabel[st[r]]}</span><div class="bar"><span style="width:${p*100}%"></span></div></span><span class="meta">${pct(p)}<br>${rec.date?fmtDate(rec.date)+(rec.by?' · '+esc(rec.by):''):'—'}</span></a>`;}).join('')||'<div class="empty">No rooms in this group.</div>'}</div>`;
+}
+
+/* ---------- Projects ---------- */
+function renderProjects(){
+  const due=ROOMS.map(filterDue);
+  const over=due.filter(d=>d&&dueCls(d)==='due-over').length,soon=due.filter(d=>d&&dueCls(d)==='due-soon').length;
+  const total=ROOMS.reduce((s,r)=>s+projDone(r),0);
+  const head=PROJECTS.map(p=>{const n=ROOMS.filter(r=>proj(r)[p.k]).length;return `<th>${esc(p.short)}<small>${pct(n/ROOMS.length)}</small></th>`;}).join('');
+  const rows=ROOMS.map(r=>{const p=proj(r);const d=filterDue(r);
+    return `<tr><td><a href="#/room/${r}" data-act="open-room" data-room="${r}" data-tab="projects">${r}</a></td>${PROJECTS.map(pr=>{const v=p[pr.k]||'';return `<td><button class="pc ${v?(v==='N/A'?'na':'set'):''}" data-act="proj-edit" data-room="${r}" data-k="${pr.k}" aria-label="${esc(pr.label)} room ${r}">${esc(projDisp(v))}</button></td>`;}).join('')}<td class="due ${dueCls(d)}">${d?fmtDate(d,1):'—'}</td><td class="tnum" style="padding:0 8px">${projDone(r)}/8</td></tr>`;}).join('');
+  return `<div class="page-head"><div><h1>All-room projects</h1><p class="muted small">${pct(total/(ROOMS.length*8))} complete across ${ROOMS.length} rooms. Tap a cell to mark it.</p></div>
+      <label style="margin:0;width:170px">Filter interval (days)<input type="number" min="7" max="365" value="${DB.filterInterval}" data-change="interval"></label></div>
+    ${over||soon?`<div class="note-box ${over?'err':'warn'}" style="margin:0 0 12px">${over?`${over} room filter${over>1?'s are':' is'} overdue. `:''}${soon?`${soon} due in the next 2 weeks.`:''}</div>`:''}
+    <div class="tbl-wrap"><table class="grid"><thead><tr><th>Room</th>${head}<th>Next filter</th><th>Done</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+/* ---------- Parts ---------- */
+function renderParts(){
+  const buy=DB.issues.filter(i=>isOpen(i)&&i.buy).sort(sortIssues);
+  const parts=DB.parts.filter(p=>!PREFS.hideInstalled||p.status!=='Installed');
+  const costOf=p=>{const n=parseFloat(String(p.cost).replace(/[$,]/g,''));return isFinite(n)?n:0;};
+  const total=DB.parts.reduce((s,p)=>s+costOf(p),0),still=DB.parts.filter(p=>p.status==='Need'||p.status==='Ordered').reduce((s,p)=>s+costOf(p),0);
+  const money=n=>'$'+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  return `<div class="page-head"><div><h1>Parts &amp; shopping</h1><p class="muted small">Need → Ordered → Have → Installed. Tap the status to move it along.</p></div></div>
+    <div class="cols"><div class="section" style="margin-top:0">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px"><h3>Parts list</h3><button class="chip ${PREFS.hideInstalled?'on':''}" data-act="toggle-installed">Hide installed</button></div>
+      <div class="stack">${parts.map(p=>`<div class="part ${p.status==='Installed'?'installed':''}">
+        <button class="grow" data-act="edit-part" data-id="${p.id}"><span class="name">${esc(p.item)}</span><span class="sub">${[p.qty!==''&&p.qty!=null?'Qty '+esc(p.qty):'',p.for?esc(p.for):'',costOf(p)?money(costOf(p)):''].filter(Boolean).join(' · ')}${p.notes?`<br>${esc(p.notes)}`:''}</span></button>
+        <button class="stbtn pill ${partCls(p.status)}" data-act="part-cycle" data-id="${p.id}">${esc(p.status)}</button></div>`).join('')||'<div class="empty">No parts yet.</div>'}</div>
+      ${total?`<p class="muted small" style="margin-top:10px">Estimated total ${money(total)} · still to buy ${money(still)}</p>`:''}
+    </div>
+    <div class="section"><h3>Need to buy · from open issues</h3>
+      ${buy.length?`<div class="list">${buy.map(i=>`<button class="lrow" data-act="edit-issue" data-id="${i.id}"><span class="rtag">${esc(i.room)}</span><span class="grow"><b>${esc(i.buy)}</b><br><span class="muted small">${esc(i.issue)}</span></span></button>`).join('')}</div>`:'<div class="empty">Nothing yet. Fill in “Need to buy” on an issue and it shows up here.</div>'}
+    </div></div>
+    <button class="fab" data-act="new-part">${svgPlus}Part</button>`;
+}
+
+/* ---------- Settings ---------- */
+let SYNC_STATE={s:'off',msg:''};
+function renderSettings(){
+  const connected=!!SYNC;
+  return `<div class="page-head"><h1>Settings</h1></div>
+  <div class="cols"><div>
+    <div class="card"><h2>You</h2>
+      <label>Your initials (filled in on inspections)<input type="text" maxlength="6" value="${esc(PREFS.initials)}" autocapitalize="characters" data-change="initials"></label>
+    </div>
+    <div class="card" style="margin-top:14px"><h2>GitHub sync</h2>
+      ${connected?`<dl class="kv" style="margin-top:10px"><dt>Repository</dt><dd>${esc(SYNC.owner)}/${esc(SYNC.repo)}</dd><dt>File</dt><dd>${esc(SYNC.path)}</dd><dt>Status</dt><dd>${esc(syncText())}</dd><dt>Last sync</dt><dd>${META.lastSync?fmtTS(META.lastSync):'never'}</dd></dl>
+        ${SYNC_STATE.s==='error'&&SYNC_STATE.msg?`<div class="note-box err">${esc(SYNC_STATE.msg)}</div>`:''}
+        <div class="row" style="margin-top:12px"><button class="btn primary" data-act="sync-now">Sync now</button><button class="btn" data-act="sync-off">Disconnect</button></div>`
+      :`<p class="muted small" style="margin:6px 0 0">Keeps your phone and computer in step by saving the data to a <b>private</b> GitHub repository. Without it, data stays only in this browser.</p>
+        <form data-submit="connect" autocomplete="off">
+          <label>GitHub username<input name="owner" required autocapitalize="none" spellcheck="false" value="${esc(lsGet('mt.lastOwner',''))}"></label>
+          <label>Private data repository<input name="repo" required autocapitalize="none" spellcheck="false" value="maintenance-data"></label>
+          <label>File name<input name="path" required autocapitalize="none" spellcheck="false" value="data.json"></label>
+          <label>Access token<input name="token" type="password" required placeholder="github_pat_…" spellcheck="false"></label>
+          <div id="connectMsg"></div>
+          <button class="btn primary" style="width:100%;margin-top:14px" type="submit">Connect</button>
+        </form>`}
+    </div></div>
+    <div>
+    <div class="card"><h2>Backup &amp; export</h2>
+      <div class="stack" style="margin-top:10px">
+        <button class="btn" data-act="export-xlsx" ${DB?'':'disabled'}>Download Excel file</button>
+        <button class="btn" data-act="export-json" ${DB?'':'disabled'}>Download backup (.json)</button>
+        <label class="btn" style="margin:0;color:var(--ink);font-size:16px">Restore from backup…<input type="file" accept=".json,application/json" data-change="import-file" hidden></label>
+      </div>
+      <p class="muted small" style="margin:10px 0 0">The Excel file has the issue log, this quarter's inspection, projects and parts, ready to hand to a manager.</p>
+    </div>
+    <div class="card" style="margin-top:14px"><h2>This device</h2>
+      <p class="muted small">${DB?`${DB.issues.length} issues, ${DB.parts.length} parts. Last change ${fmtTS(DB.updated)}.`:'No data on this device yet.'}</p>
+      <button class="btn danger" data-act="reset" ${DB?'':'disabled'}>Erase data on this device</button>
+    </div></div></div>`;
+}
+
+/* ================= Sheets, toast ================= */
+const SHEET=document.getElementById('sheet'),SCRIM=document.getElementById('scrim');
+let CTX={},SHEET_MODAL=false;
+function openSheet(title,body,ctx={},modal=false){CTX=ctx;SHEET_MODAL=modal;
+  SHEET.innerHTML=`<div class="grab"></div><div class="sheet-head"><h2>${title}</h2>${modal?'':'<button class="x" data-act="close-sheet" aria-label="Close">×</button>'}</div>${body}`;
+  SHEET.hidden=false;SCRIM.hidden=false;SHEET.scrollTop=0;document.body.style.overflow='hidden';
+  const f=SHEET.querySelector('[autofocus]');if(f&&matchMedia('(min-width:640px)').matches)f.focus();}
+function closeSheet(force){if(SHEET_MODAL&&!force)return;SHEET.hidden=true;SCRIM.hidden=true;SHEET.innerHTML='';document.body.style.overflow='';SHEET_MODAL=false;}
+SCRIM.addEventListener('click',()=>closeSheet());
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet();});
+let toastTimer;
+function toast(msg,undo){const t=document.getElementById('toast');t.innerHTML=`<span>${esc(msg)}</span>${undo?'<button data-act="undo">Undo</button>':''}`;t.hidden=false;TOAST_UNDO=undo||null;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true;TOAST_UNDO=null;},undo?6000:2200);}
+let TOAST_UNDO=null;
+
+/* ================= Forms ================= */
+function roomSelect(sel){
+  const opt=v=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(isRoom(v)?v:v)}</option>`;
+  return `<select name="room" required><optgroup label="1st floor">${ROOMS.filter(r=>r[0]==='1').map(opt).join('')}</optgroup><optgroup label="2nd floor">${ROOMS.filter(r=>r[0]==='2').map(opt).join('')}</optgroup><optgroup label="Common areas">${COMMON.map(opt).join('')}</optgroup></select>`;
+}
+const radios=(name,opts,sel)=>`<div class="radios">${opts.map(o=>`<label><input type="radio" name="${name}" value="${esc(o)}" ${o===sel?'checked':''}><span>${esc(o)}</span></label>`).join('')}</div>`;
+function issueForm(i,defaults={}){
+  const it=i||Object.assign({room:'',area:'',issue:'',priority:'Normal',status:'Open',tools:'',buy:'',found:todayISO(),done:'',notes:''},defaults);
+  const tools=[...new Set(DB.issues.map(x=>x.tools).filter(Boolean))];
+  openSheet(i?`Issue #${i.id}`:'New issue',`<form data-submit="issue">
+    <div class="grid2"><label>Room / area${roomSelect(it.room)}</label><label>Type<select name="area"><option value=""></option>${AREAS.map(a=>`<option ${a===it.area?'selected':''}>${a}</option>`).join('')}</select></label></div>
+    <label>What's wrong<textarea name="issue" required rows="2" ${i?'':'autofocus'}>${esc(it.issue)}</textarea></label>
+    <label>Priority</label>${radios('priority',PRIORITIES,it.priority)}
+    <label>Status</label>${radios('status',STATUSES,it.status)}
+    <label>Tools / parts needed<input name="tools" list="toolsList" value="${esc(it.tools)}" placeholder="e.g. small allen, soap key"></label><datalist id="toolsList">${tools.map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
+    <label>Need to buy<input name="buy" value="${esc(it.buy)}" placeholder="Shows on the Parts page"></label>
+    <div class="grid2"><label>Date found<input type="date" name="found" value="${esc(it.found)}"></label><label>Date done<input type="date" name="done" value="${esc(it.done)}"></label></div>
+    <label>Notes<textarea name="notes" rows="2">${esc(it.notes)}</textarea></label>
+    <div class="form-actions">${i?'<button type="button" class="btn danger" data-act="delete-issue">Delete</button>':''}<button class="btn primary" type="submit">${i?'Save':'Add issue'}</button></div>
+  </form>`,{id:i?i.id:null,pm:defaults.pm||null});
+}
+function partForm(p){
+  const it=p||{item:'',qty:'',for:'',status:'Need',cost:'',notes:''};
+  openSheet(p?'Edit part':'New part',`<form data-submit="part">
+    <label>Item<input name="item" required value="${esc(it.item)}" ${p?'':'autofocus'}></label>
+    <div class="grid2"><label>Qty<input name="qty" value="${esc(it.qty)}"></label><label>Est. cost ($)<input name="cost" inputmode="decimal" value="${esc(it.cost)}"></label></div>
+    <label>For (room / project)<input name="for" value="${esc(it.for)}"></label>
+    <label>Status</label>${radios('status',PART_STATUS,it.status)}
+    <label>Notes<textarea name="notes" rows="2">${esc(it.notes)}</textarea></label>
+    <div class="form-actions">${p?'<button type="button" class="btn danger" data-act="delete-part">Delete</button>':''}<button class="btn primary" type="submit">${p?'Save':'Add part'}</button></div>
+  </form>`,{id:p?p.id:null});
+}
+function pmMore(room,i){
+  const q=viewQ();const r=pmRec(q,room)||{v:{},n:{}};const v=(r.v||{})[i]||'';
+  const linked=DB.issues.filter(x=>x.room===room&&x.pm&&x.pm.q===q&&x.pm.i===i);
+  openSheet(esc(ITEMS[i].label),`<p class="muted small" style="margin:0 0 12px">Room ${room} · ${qLabel(q)} · ${esc(ITEMS[i].sec)}</p>
+    <div class="stack">
+      <button class="btn left ${v==='✓'?'primary':''}" data-act="pm-set" data-v="✓">✓ Inspected, OK</button>
+      <button class="btn left ${v==='N/A'?'primary':''}" data-act="pm-set" data-v="N/A">N/A for this room</button>
+      <button class="btn left" data-act="pm-issue">Found a problem → log an issue</button>
+      ${linked.map(l=>`<button class="btn left ghost" data-act="edit-issue" data-id="${l.id}">Issue #${l.id}: ${esc(l.issue)} · ${esc(l.status)}</button>`).join('')}
+      ${v?'<button class="btn left danger" data-act="pm-set" data-v="">Clear this item</button>':''}
+    </div>
+    <label>Note<textarea id="pmNote" rows="2" placeholder="Optional">${esc((r.n||{})[i]||'')}</textarea></label>
+    <button class="btn" style="width:100%;margin-top:8px" data-act="pm-note">Save note</button>`,{room,i});
+}
+function projSheet(room,k){
+  const pr=PROJECTS.find(p=>p.k===k);const v=proj(room)[k]||'';
+  openSheet(esc(pr.label),`<p class="muted small" style="margin:0 0 12px">Room ${room}${v?` · currently <b>${esc(projDisp(v))}</b>`:''}${pr.hint?` · ${esc(pr.hint)}`:''}</p>
+    <div class="stack">
+      <button class="btn primary" data-act="proj-set" data-v="today">Done today (${fmtDate(todayISO())})</button>
+      <button class="btn" data-act="proj-set" data-v="OK">Already OK — nothing needed</button>
+      <button class="btn" data-act="proj-set" data-v="N/A">N/A for this room</button>
+      <label>Done on a different date<input type="date" max="${todayISO()}" data-change="proj-date"></label>
+      ${v?'<button class="btn danger" data-act="proj-set" data-v="">Clear</button>':''}
+    </div>`,{room,k});
+}
+function setProj(room,k,v){DB.projects[room]=DB.projects[room]||{};if(v)DB.projects[room][k]=v;else delete DB.projects[room][k];closeSheet();commit('Saved');}
+
+/* ================= Actions ================= */
+const ACT={
+  'close-sheet':()=>closeSheet(),
+  'undo':()=>{if(TOAST_UNDO){const f=TOAST_UNDO;TOAST_UNDO=null;document.getElementById('toast').hidden=true;f();}},
+  'start-blank':()=>{DB=blankDB();DB.updated=new Date().toISOString();META.dirty=false;persist();render();},
+  'map-mode':el=>{PREFS.mapMode=el.dataset.v;savePrefs();render();},
+  'open-room':el=>{if(el.dataset.tab)PREFS.roomTab=el.dataset.tab;savePrefs();location.hash='#/room/'+encodeURIComponent(el.dataset.room);},
+  'room-tab':el=>{PREFS.roomTab=el.dataset.v;savePrefs();render();},
+  'issue-filter':el=>{PREFS.issueFilter=el.dataset.v;savePrefs();render();},
+  'issue-group':el=>{PREFS.issueGroup=el.dataset.v;savePrefs();render();},
+  'insp-filter':el=>{PREFS.inspFilter=el.dataset.v;savePrefs();render();},
+  'toggle-installed':()=>{PREFS.hideInstalled=!PREFS.hideInstalled;savePrefs();render();},
+  'new-issue':el=>{const {page,arg}=route();issueForm(null,{room:el.dataset.room||(page==='room'?arg:'')});},
+  'edit-issue':el=>{const i=DB.issues.find(x=>x.id===+el.dataset.id);if(i)issueForm(i);},
+  'issue-done':el=>{const i=DB.issues.find(x=>x.id===+el.dataset.id);if(!i)return;const prev={status:i.status,done:i.done};i.status='Done';i.done=todayISO();commit();toast(`#${i.id} marked done`,()=>{Object.assign(i,prev);commit();});},
+  'delete-issue':()=>{const k=DB.issues.findIndex(x=>x.id===CTX.id);if(k<0)return;const [gone]=DB.issues.splice(k,1);closeSheet();commit();toast('Issue deleted',()=>{DB.issues.splice(k,0,gone);commit();});},
+  'new-part':()=>partForm(null),
+  'edit-part':el=>{const p=DB.parts.find(x=>x.id===+el.dataset.id);if(p)partForm(p);},
+  'part-cycle':el=>{const p=DB.parts.find(x=>x.id===+el.dataset.id);if(!p)return;p.status=PART_STATUS[(PART_STATUS.indexOf(p.status)+1)%PART_STATUS.length];commit();},
+  'delete-part':()=>{const k=DB.parts.findIndex(x=>x.id===CTX.id);if(k<0)return;const [gone]=DB.parts.splice(k,1);closeSheet();commit();toast('Part deleted',()=>{DB.parts.splice(k,0,gone);commit();});},
+  'pm-tap':(el)=>{const room=route().arg,i=+el.dataset.i,q=viewQ();const r=pmRec(q,room);const v=r&&r.v?r.v[i]:'';
+    if(v==='N/A'||v==='!'){pmMore(room,i);return;}
+    const rec=ensurePM(q,room);if(v)delete rec.v[i];else{rec.v[i]='✓';touchPM(rec);}commit();},
+  'pm-more':el=>pmMore(route().arg,+el.dataset.i),
+  'pm-set':el=>{const {room,i}=CTX,q=viewQ();const rec=ensurePM(q,room);if(el.dataset.v)rec.v[i]=el.dataset.v;else delete rec.v[i];touchPM(rec);closeSheet();commit();},
+  'pm-note':()=>{const {room,i}=CTX,q=viewQ();const rec=ensurePM(q,room);const t=document.getElementById('pmNote').value.trim();if(t)rec.n[i]=t;else delete rec.n[i];closeSheet();commit('Note saved');},
+  'pm-issue':()=>{const {room,i}=CTX;const it=ITEMS[i];closeSheet(true);issueForm(null,{room,area:SECTION_AREA[it.sec]||'',issue:it.label+' – ',pm:{q:viewQ(),i}});},
+  'pm-sec':el=>{const room=route().arg,q=viewQ(),s=+el.dataset.s;const rec=ensurePM(q,room);ITEMS.filter(x=>x.s===s).forEach(x=>{if(!rec.v[x.i])rec.v[x.i]='✓';});touchPM(rec);commit();},
+  'pm-all':()=>{const room=route().arg,q=viewQ();const left=ITEMS.length-pmCount(q,room);if(!confirm(`Mark the remaining ${left} items in room ${room} as inspected OK?`))return;const rec=ensurePM(q,room);ITEMS.forEach(x=>{if(!rec.v[x.i])rec.v[x.i]='✓';});touchPM(rec);commit('Room marked complete');},
+  'proj-edit':el=>projSheet(el.dataset.room,el.dataset.k),
+  'proj-set':el=>{const v=el.dataset.v==='today'?todayISO():el.dataset.v;setProj(CTX.room,CTX.k,v);},
+  'export-json':()=>{download(new Blob([JSON.stringify(DB,null,1)],{type:'application/json'}),`maintenance-backup-${todayISO()}.json`);},
+  'export-xlsx':el=>exportExcel(el),
+  'reset':()=>{if(!confirm('Erase all tracker data stored in this browser? Anything already synced to GitHub stays there.'))return;DB=null;META={dirty:false,sha:null,lastSync:null};lsDel(LS.data);persist();lsDel(LS.data);render();},
+  'sync-now':()=>{run(doPull);},
+  'sync-off':()=>{if(META.dirty&&!confirm('Some changes on this device have not reached GitHub yet. Disconnect anyway? (They stay on this device.)'))return;SYNC=null;lsDel(LS.sync);META.sha=null;persist();setSync('off');render();},
+  'conflict':el=>{const f=CONFLICT_RESOLVE;CONFLICT_RESOLVE=null;closeSheet(true);if(f)f(el.dataset.v);},
+};
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el)return;const fn=ACT[el.dataset.act];if(!fn)return;e.preventDefault();e.stopPropagation();fn(el,e);});
+document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&e.target.matches('.chk')){e.preventDefault();ACT['pm-tap'](e.target);}});
+
+const CHG={
+  'quarter':el=>{PREFS.quarter=el.value===curQ()?'':el.value;savePrefs();render();},
+  'pm-date':el=>{const rec=ensurePM(viewQ(),el.dataset.room);rec.date=el.value;commit();},
+  'pm-by':el=>{const rec=ensurePM(viewQ(),el.dataset.room);rec.by=el.value.trim().toUpperCase();if(!PREFS.initials&&rec.by){PREFS.initials=rec.by;savePrefs();}commit();},
+  'proj-date':el=>{if(isDate(el.value))setProj(CTX.room,CTX.k,el.value);},
+  'proj-notes':el=>{DB.projects[el.dataset.room]=DB.projects[el.dataset.room]||{};const t=el.value.trim();if(t)DB.projects[el.dataset.room].notes=t;else delete DB.projects[el.dataset.room].notes;commit('Notes saved');},
+  'interval':el=>{const n=parseInt(el.value,10);if(n>0){DB.filterInterval=n;commit();}},
+  'initials':el=>{PREFS.initials=el.value.trim().toUpperCase();savePrefs();toast('Saved');},
+  'import-file':async el=>{const f=el.files&&el.files[0];if(!f)return;try{const d=normalize(JSON.parse(await f.text()));
+      if(DB&&!confirm(`Replace the data on this device with "${f.name}"? (${d.issues.length} issues, ${d.parts.length} parts)`))return;
+      DB=d;commit('Data loaded');}catch(err){alert("Couldn't load that file: "+err.message);}finally{el.value='';}},
+};
+document.addEventListener('change',e=>{const el=e.target.closest('[data-change]');if(el&&CHG[el.dataset.change])CHG[el.dataset.change](el,e);});
+document.addEventListener('input',e=>{if(e.target.dataset.input==='search'){SEARCH=e.target.value;renderIssueList();}});
+
+const SUBMIT={
+  issue:f=>{const o=Object.fromEntries(new FormData(f));let it=CTX.id?DB.issues.find(x=>x.id===CTX.id):null;const isNew=!it;
+    if(isNew){it={id:DB.nextId++,pm:CTX.pm||null};DB.issues.push(it);}
+    Object.assign(it,{room:o.room,area:o.area||'',issue:(o.issue||'').trim(),priority:o.priority||'Normal',status:o.status||'Open',tools:(o.tools||'').trim(),buy:(o.buy||'').trim(),found:o.found||todayISO(),done:o.done||'',notes:(o.notes||'').trim()});
+    if(it.status==='Done'&&!it.done)it.done=todayISO();
+    if(it.status!=='Done')it.done='';
+    if(isNew&&it.pm&&it.pm.q){const rec=ensurePM(it.pm.q,it.room);rec.v[it.pm.i]='!';touchPM(rec);}
+    closeSheet();commit(isNew?`Issue #${it.id} added`:'Saved');},
+  part:f=>{const o=Object.fromEntries(new FormData(f));let p=CTX.id?DB.parts.find(x=>x.id===CTX.id):null;const isNew=!p;
+    if(isNew){p={id:DB.nextPartId++};DB.parts.push(p);}
+    Object.assign(p,{item:o.item.trim(),qty:o.qty.trim(),for:o.for.trim(),status:o.status||'Need',cost:o.cost.trim(),notes:o.notes.trim()});closeSheet();commit(isNew?'Part added':'Saved');},
+  connect:async f=>{
+    const o=Object.fromEntries(new FormData(f));const cfg={owner:o.owner.trim(),repo:o.repo.trim(),path:o.path.trim().replace(/^\/+/,''),token:o.token.trim()};
+    const msg=document.getElementById('connectMsg');const btn=f.querySelector('[type=submit]');btn.disabled=true;btn.textContent='Connecting…';msg.innerHTML='';
+    try{
+      const res=await fetch(`${GH}/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}`,{cache:'no-store',headers:ghHeaders(cfg.token)});
+      if(!res.ok)throw await ghErr(res,'repo');
+      const info=await res.json();
+      lsSet('mt.lastOwner',cfg.owner);
+      SYNC=cfg;lsSet(LS.sync,SYNC);META.sha=null;persist();
+      await run(doPull);
+      render();
+      if(!info.private)toast('Warning: that repository is public. Make it private in GitHub settings.');else toast('Connected to GitHub');
+    }catch(err){msg.innerHTML=`<div class="note-box err">${esc(err.message)}</div>`;btn.disabled=false;btn.textContent='Connect';}
+  },
+};
+document.addEventListener('submit',e=>{const f=e.target;if(f.dataset.submit&&SUBMIT[f.dataset.submit]){e.preventDefault();SUBMIT[f.dataset.submit](f);}});
+
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
+
+/* ================= GitHub sync =================
+   Data lives in a PRIVATE repo as one JSON file, read/written with the GitHub
+   contents API using a fine-grained token stored only in this browser. */
+const GH='https://api.github.com';
+const ghHeaders=t=>({'Accept':'application/vnd.github+json','Authorization':'Bearer '+t});
+const contentsURL=()=>`${GH}/repos/${encodeURIComponent(SYNC.owner)}/${encodeURIComponent(SYNC.repo)}/contents/${SYNC.path.split('/').map(encodeURIComponent).join('/')}`;
+function b64enc(str){const bytes=new TextEncoder().encode(str);let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(bin);}
+function b64dec(b64){const bin=atob(String(b64).replace(/\s/g,''));const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return new TextDecoder().decode(bytes);}
+async function ghErr(res,what){
+  let m='';try{m=(await res.json()).message||'';}catch(e){}
+  if(res.status===401)return new Error('GitHub rejected the token. It may be mistyped or expired.');
+  if(res.status===403&&res.headers.get('x-ratelimit-remaining')==='0')return new Error('GitHub rate limit hit. Try again in a few minutes.');
+  if(res.status===403)return new Error('The token can’t write to this repository. Give it “Contents: Read and write” access.');
+  if(res.status===404)return new Error(what==='repo'?'Repository not found. Check the username and repository name, and that the token includes this repository.':'File or repository not found.');
+  return new Error(`GitHub error ${res.status}${m?': '+m:''}`);
+}
+let QUEUE=Promise.resolve(),SYNC_TIMER=null,CONFLICT_RESOLVE=null;
+function run(task){QUEUE=QUEUE.then(()=>SYNC?task():null).catch(syncFail);return QUEUE;}
+function syncFail(e){if(e instanceof TypeError)setSync('offline','No connection. Changes are saved on this device and will sync later.');else setSync('error',e.message);}
+function scheduleSync(){if(!SYNC){setSync('off');return;}setSync('pending');clearTimeout(SYNC_TIMER);SYNC_TIMER=setTimeout(()=>run(doPush),2500);}
+function flushSync(){if(SYNC&&META.dirty){clearTimeout(SYNC_TIMER);run(doPush);}}
+async function doPull(depth=0){
+  setSync('syncing');
+  const res=await fetch(contentsURL(),{cache:'no-store',headers:ghHeaders(SYNC.token)});
+  if(res.status===404){if(DB){META.sha=null;return doPush(depth);}setSync('ok','No data file in the repository yet.');return;}
+  if(!res.ok)throw await ghErr(res);
+  const j=await res.json();
+  if(j.sha===META.sha){if(META.dirty)return doPush(depth);markSynced();return;}
+  let remote;
+  if(j.content)remote=normalize(JSON.parse(b64dec(j.content)));
+  else{const raw=await fetch(contentsURL(),{cache:'no-store',headers:Object.assign(ghHeaders(SYNC.token),{'Accept':'application/vnd.github.raw+json'})});if(!raw.ok)throw await ghErr(raw);remote=normalize(await raw.json());}
+  if(!META.dirty||!DB){DB=remote;META.sha=j.sha;META.dirty=false;markSynced();render();return;}
+  const choice=await askConflict(remote);
+  if(choice==='remote'){DB=remote;META.sha=j.sha;META.dirty=false;markSynced();render();}
+  else{META.sha=j.sha;return doPush(depth);}
+}
+async function doPush(depth=0){
+  if(!DB||!SYNC)return;
+  setSync('syncing');
+  const stamp=DB.updated;
+  const body={message:`Tracker update ${new Date().toLocaleString()}`,content:b64enc(JSON.stringify(DB,null,1))};
+  if(META.sha)body.sha=META.sha;
+  const res=await fetch(contentsURL(),{method:'PUT',cache:'no-store',headers:Object.assign(ghHeaders(SYNC.token),{'Content-Type':'application/json'}),body:JSON.stringify(body)});
+  if((res.status===409||res.status===422)&&depth<2)return doPull(depth+1);
+  if(!res.ok)throw await ghErr(res);
+  const j=await res.json();META.sha=j.content.sha;
+  if(DB.updated===stamp)META.dirty=false;
+  markSynced();
+  if(META.dirty)scheduleSync();
+}
+function markSynced(){META.lastSync=new Date().toISOString();persist();setSync(META.dirty?'pending':'ok');}
+function askConflict(remote){return new Promise(res=>{CONFLICT_RESOLVE=res;setSync('conflict');
+  openSheet('Two versions found',`<p>This device has changes that haven’t reached GitHub, and GitHub has a different version (probably from your other device).</p>
+    <dl class="kv"><dt>This device</dt><dd>last change ${fmtTS(DB.updated)} · ${DB.issues.length} issues</dd><dt>GitHub</dt><dd>last change ${fmtTS(remote.updated)} · ${remote.issues.length} issues</dd></dl>
+    <div class="stack" style="margin-top:16px"><button class="btn primary" data-act="conflict" data-v="local">Keep this device’s version</button><button class="btn" data-act="conflict" data-v="remote">Use GitHub’s version</button></div>
+    <p class="muted small">Tip: download a backup first from Settings if you’re unsure. Every sync is also saved in the repository’s commit history.</p>`,{},true);});}
+function syncText(){return ({off:'This device',pending:'Saving…',syncing:'Syncing…',ok:'Synced',offline:'Offline',error:'Sync error',conflict:'Needs you'})[SYNC_STATE.s]||'';}
+function setSync(s,msg=''){SYNC_STATE={s,msg};updateSyncBadge();}
+function updateSyncBadge(){const el=document.getElementById('sync');const s=SYNC?SYNC_STATE.s:'off';el.dataset.s=s;document.getElementById('syncText').textContent=SYNC?syncText():(DB?'This device only':'Not set up');el.title=SYNC_STATE.msg||'';}
+document.addEventListener('visibilitychange',()=>{if(!SYNC)return;if(document.hidden)flushSync();else run(doPull);});
+window.addEventListener('online',()=>{if(SYNC)run(doPull);});
+window.addEventListener('pagehide',flushSync);
+
+/* ================= Excel export ================= */
+function loadScript(src){return new Promise((ok,bad)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>bad(new Error('Could not load the Excel library. Check your connection.'));document.head.appendChild(s);});}
+async function exportExcel(btn){
+  btn.disabled=true;const label=btn.textContent;btn.textContent='Building…';
+  try{
+    if(!window.XLSX)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js').catch(()=>loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'));
+    const X=window.XLSX,wb=X.utils.book_new(),q=viewQ();
+    const add=(name,rows,widths)=>{const ws=Array.isArray(rows[0])?X.utils.aoa_to_sheet(rows):X.utils.json_to_sheet(rows);if(widths)ws['!cols']=widths.map(w=>({wch:w}));X.utils.book_append_sheet(wb,ws,name);};
+    const iss=[...DB.issues].sort((a,b)=>ordIdx(a.room)-ordIdx(b.room)||isOpen(b)-isOpen(a)||a.id-b.id);
+    add('Issue Log',iss.length?iss.map(i=>({'Room':i.room,'ID':i.id,'Date Found':fmtDate(i.found,1),'Area':i.area,'Issue':i.issue,'Priority':i.priority,'Status':i.status,'Tools / Parts Needed':i.tools,'Need to Buy':i.buy,'Date Done':fmtDate(i.done,1),'Days Open':daysOpen(i),'Notes':i.notes})):[['No issues']],[8,5,11,11,48,9,15,24,20,11,9,30]);
+    add(('Inspection '+qLabel(q)).slice(0,31),ROOMS.map(r=>{const rec=pmRec(q,r)||{};return {'Room':r,'Status':pmStateLabel[pmState(q,r)],'% Complete':pct(pmPct(q,r)),'Date Inspected':fmtDate(rec.date,1),'Inspected By':rec.by||''};}),[8,13,11,14,12]);
+    const det=[['Item',...ROOMS]];CHECKLIST.forEach(([sec],s)=>{det.push([sec.toUpperCase()]);ITEMS.filter(x=>x.s===s).forEach(x=>det.push([x.label,...ROOMS.map(r=>{const v=((pmRec(q,r)||{}).v||{})[x.i]||'';return v==='!'?'Issue':v;})]));});
+    add('Inspection Detail',det,[46,...ROOMS.map(()=>5)]);
+    add('Projects',ROOMS.map(r=>{const p=proj(r),o={'Room':r};PROJECTS.forEach(pr=>{o[pr.label]=isDate(p[pr.k])?fmtDate(p[pr.k],1):(p[pr.k]||'');});o['Next Filter Due']=filterDue(r)?fmtDate(filterDue(r),1):'';o['Done (of 8)']=projDone(r);o['Notes']=p.notes||'';return o;}),[7,14,14,12,12,12,12,16,12,14,10,30]);
+    add('Parts',DB.parts.length?DB.parts.map(p=>({'Item':p.item,'Qty':p.qty,'For (Room / Project)':p.for,'Status':p.status,'Est. Cost ($)':p.cost===''?'':(isFinite(+p.cost)?+p.cost:p.cost),'Notes':p.notes})):[['No parts']],[34,6,24,11,12,30]);
+    X.writeFile(wb,`Maintenance_${todayISO()}.xlsx`);
+  }catch(e){alert(e.message);}finally{btn.disabled=false;btn.textContent=label;}
+}
+
+/* ================= Boot ================= */
+render();
+if(SYNC)run(doPull);
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
