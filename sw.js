@@ -1,5 +1,5 @@
 // Network-first cache so the tracker still opens when hotel Wi-Fi drops.
-const CACHE='mt-v1';
+const CACHE='mt-v2';
 const CORE=['./','./index.html','./manifest.webmanifest','./icon-192.png'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).catch(()=>{}));});
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));

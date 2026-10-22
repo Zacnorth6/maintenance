@@ -375,13 +375,16 @@ range(103,110).forEach((id,k)=>M(3+k,10,id));
 MAP.push({c:3,r:4,cs:6,rs:3,kind:'deco',label:'Courtyard'});
 
 /* ================= Storage ================= */
-const LS={data:'mt.data.v1',meta:'mt.meta.v1',sync:'mt.sync.v1',prefs:'mt.prefs.v1'};
+const LS={data:'mt.data.v1',meta:'mt.meta.v1',sync:'mt.sync.v1',prefs:'mt.prefs.v1',base:'mt.base.v1'};
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
 function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
 let DB=null;
 let META=lsGet(LS.meta,{dirty:false,sha:null,lastSync:null});
 let SYNC=lsGet(LS.sync,null);
+let BASE=lsGet(LS.base,null);   // last version known to be on GitHub (for merging)
+let TEAM;                        // team.json contents: undefined = still checking, null = none
+let LOCK_MSG='';
 let PREFS=Object.assign({initials:'',mapMode:'issues',roomTab:'issues',issueFilter:'open',issueGroup:'room',quarter:'',inspFilter:'all',hideInstalled:false},lsGet(LS.prefs,{}));
 try{const raw=lsGet(LS.data,null);DB=raw?normalize(raw):null;}catch(e){DB=null;}
 PREFS.quarter='';
@@ -391,8 +394,8 @@ function blankDB(){return {version:1,nextId:1,nextPartId:1,filterInterval:90,iss
 function normalize(d){
   if(!d||typeof d!=='object'||!Array.isArray(d.issues))throw new Error("That file isn't tracker data.");
   const o=Object.assign(blankDB(),d);
-  o.issues=d.issues.filter(Boolean).map(i=>({id:Number(i.id)||0,room:String(i.room??''),found:i.found||'',area:i.area||'',issue:i.issue||'',priority:PRIORITIES.includes(i.priority)?i.priority:'Normal',status:STATUSES.includes(i.status)?i.status:'Open',tools:i.tools||'',buy:i.buy||'',done:i.done||'',notes:i.notes||'',pm:i.pm||null}));
-  o.parts=(Array.isArray(d.parts)?d.parts:[]).filter(Boolean).map((p,k)=>({id:Number(p.id)||k+1,item:p.item||'',qty:p.qty??'',for:p.for||'',status:PART_STATUS.includes(p.status)?p.status:'Need',cost:p.cost??'',notes:p.notes||''}));
+  o.issues=d.issues.filter(Boolean).map(i=>({uid:String(i.uid||('i'+(Number(i.id)||0))),id:Number(i.id)||0,room:String(i.room??''),found:i.found||'',area:i.area||'',issue:i.issue||'',priority:PRIORITIES.includes(i.priority)?i.priority:'Normal',status:STATUSES.includes(i.status)?i.status:'Open',tools:i.tools||'',buy:i.buy||'',done:i.done||'',notes:i.notes||'',pm:i.pm||null,by:i.by||''}));
+  o.parts=(Array.isArray(d.parts)?d.parts:[]).filter(Boolean).map((p,k)=>({uid:String(p.uid||('p'+(Number(p.id)||k+1))),id:Number(p.id)||k+1,item:p.item||'',qty:p.qty??'',for:p.for||'',status:PART_STATUS.includes(p.status)?p.status:'Need',cost:p.cost??'',notes:p.notes||''}));
   o.projects=d.projects&&typeof d.projects==='object'?d.projects:{};
   o.pm=d.pm&&typeof d.pm==='object'?d.pm:{};
   o.filterInterval=Number(d.filterInterval)||90;
@@ -401,7 +404,7 @@ function normalize(d){
   return o;
 }
 function persist(){lsSet(LS.data,DB);lsSet(LS.meta,META);}
-function commit(msg){DB.updated=new Date().toISOString();META.dirty=true;persist();scheduleSync();render();if(msg)toast(msg);}
+function commit(msg){DB.updated=new Date().toISOString();DB.updatedBy=PREFS.initials||'';META.dirty=true;persist();scheduleSync();render();if(msg)toast(msg);}
 
 /* ================= Helpers ================= */
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -422,6 +425,7 @@ const curQ=()=>{const d=new Date();return `${d.getFullYear()}-Q${Math.floor(d.ge
 const viewQ=()=>PREFS.quarter||curQ();
 const qLabel=q=>q.replace('-',' ');
 const isOpen=i=>i.status!=='Done';
+const rid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 function daysOpen(i){if(!isDate(i.found))return '';return Math.max(0,daysBetween(i.found,isDate(i.done)?i.done:todayISO()));}
 const stCls=s=>({Open:'yel','Waiting on Part':'org',Monitor:'blu',Done:'grn'}[s]||'');
 const partCls=s=>({Need:'red',Ordered:'yel',Have:'grn',Installed:''}[s]||'');
@@ -455,7 +459,7 @@ function render(){
   const y=window.scrollY;
   let html;
   if(page==='settings')html=renderSettings();
-  else if(!DB)html=renderWelcome();
+  else if(!DB)html=SYNC?renderLoading():TEAM===undefined?'':TEAM?renderLock():renderWelcome();
   else if(page==='room'&&ORDER.includes(arg))html=renderRoom(arg);
   else if(page==='issues')html=renderIssues();
   else if(page==='inspect')html=renderInspect();
@@ -468,6 +472,22 @@ function render(){
   updateSyncBadge();
 }
 window.addEventListener('hashchange',()=>{closeSheet();render();window.scrollTo(0,0);});
+
+/* ---------- Lock / loading ---------- */
+function renderLock(){return `<section class="card welcome">
+  <h1>Maintenance Tracker</h1>
+  <p>Enter the team password to open the tracker.</p>
+  ${LOCK_MSG?`<div class="note-box warn">${esc(LOCK_MSG)}</div>`:''}
+  <form data-submit="unlock">
+    <label>Team password<input name="pw" type="password" required autocomplete="current-password" autofocus></label>
+    <label>Your initials<input name="initials" required maxlength="6" autocapitalize="characters" value="${esc(PREFS.initials)}" placeholder="e.g. ZN"></label>
+    <div id="unlockMsg"></div>
+    <button class="btn primary" style="width:100%;margin-top:14px" type="submit">Unlock</button>
+  </form>
+  <p class="muted small" style="margin-top:14px">Your initials are saved with the changes you make. Admin? <a href="#/settings">Connect with a token</a>.</p></section>`;}
+function renderLoading(){const err=SYNC_STATE.s==='error'||SYNC_STATE.s==='offline';return `<section class="card welcome">
+  <h1>${err?'Couldn’t load the data':'Loading data…'}</h1>
+  ${err?`<div class="note-box err">${esc(SYNC_STATE.msg||'Sync failed.')}</div><div class="row" style="margin-top:12px"><button class="btn primary" data-act="sync-now">Try again</button>${SYNC.team?'<button class="btn" data-act="sign-out">Sign out</button>':'<a class="btn" href="#/settings">Settings</a>'}</div>`:'<p class="muted">Getting the latest from GitHub.</p>'}</section>`;}
 
 /* ---------- Welcome ---------- */
 function renderWelcome(){return `<section class="card welcome">
@@ -527,7 +547,7 @@ function renderMap(){
 /* ---------- Issue cards + list ---------- */
 function issueCard(i,showRoom=true){
   const done=i.status==='Done',d=daysOpen(i);
-  const meta=[i.tools&&`<span><b>Tools/parts</b> ${esc(i.tools)}</span>`,i.buy&&`<span><b>Buy</b> ${esc(i.buy)}</span>`,i.notes&&`<span>${esc(i.notes)}</span>`].filter(Boolean).join('');
+  const meta=[i.tools&&`<span><b>Tools/parts</b> ${esc(i.tools)}</span>`,i.buy&&`<span><b>Buy</b> ${esc(i.buy)}</span>`,i.notes&&`<span>${esc(i.notes)}</span>`,i.by&&`<span><b>By</b> ${esc(i.by)}</span>`].filter(Boolean).join('');
   return `<article class="issue p-${esc(i.priority)} ${done?'done':''}">
     <button class="ibody" data-act="edit-issue" data-id="${i.id}">
       <span class="itags">${showRoom?`<span class="rtag">${esc(i.room)}</span>`:''}<span class="pill ${stCls(i.status)}">${esc(i.status)}</span>${i.priority!=='Normal'?`<span class="pill ${i.priority==='High'?'red':''}">${esc(i.priority)}</span>`:''}${i.area?`<span class="pill">${esc(i.area)}</span>`:''}<span class="days">${done?'Done '+fmtDate(i.done):d!==''?d+'d open':''}</span></span>
@@ -687,9 +707,9 @@ function renderSettings(){
       <label>Your initials (filled in on inspections)<input type="text" maxlength="6" value="${esc(PREFS.initials)}" autocapitalize="characters" data-change="initials"></label>
     </div>
     <div class="card" style="margin-top:14px"><h2>GitHub sync</h2>
-      ${connected?`<dl class="kv" style="margin-top:10px"><dt>Repository</dt><dd>${esc(SYNC.owner)}/${esc(SYNC.repo)}</dd><dt>File</dt><dd>${esc(SYNC.path)}</dd><dt>Status</dt><dd>${esc(syncText())}</dd><dt>Last sync</dt><dd>${META.lastSync?fmtTS(META.lastSync):'never'}</dd></dl>
+      ${connected?`<dl class="kv" style="margin-top:10px"><dt>Repository</dt><dd>${esc(SYNC.owner)}/${esc(SYNC.repo)}</dd><dt>File</dt><dd>${esc(SYNC.path)}</dd><dt>Status</dt><dd>${esc(syncText())}</dd><dt>Last sync</dt><dd>${META.lastSync?fmtTS(META.lastSync):'never'}</dd>${SYNC.team?`<dt>Signed in</dt><dd>with the team password as ${esc(PREFS.initials||'—')}</dd>`:''}</dl>
         ${SYNC_STATE.s==='error'&&SYNC_STATE.msg?`<div class="note-box err">${esc(SYNC_STATE.msg)}</div>`:''}
-        <div class="row" style="margin-top:12px"><button class="btn primary" data-act="sync-now">Sync now</button><button class="btn" data-act="sync-off">Disconnect</button></div>`
+        <div class="row" style="margin-top:12px"><button class="btn primary" data-act="sync-now">Sync now</button>${SYNC.team?'<button class="btn danger" data-act="sign-out">Sign out of this device</button>':'<button class="btn" data-act="sync-off">Disconnect</button>'}</div>`
       :`<p class="muted small" style="margin:6px 0 0">Keeps your phone and computer in step by saving the data to a <b>private</b> GitHub repository. Without it, data stays only in this browser.</p>
         <form data-submit="connect" autocomplete="off">
           <label>GitHub username<input name="owner" required autocapitalize="none" spellcheck="false" value="${esc(lsGet('mt.lastOwner',''))}"></label>
@@ -699,7 +719,7 @@ function renderSettings(){
           <div id="connectMsg"></div>
           <button class="btn primary" style="width:100%;margin-top:14px" type="submit">Connect</button>
         </form>`}
-    </div></div>
+    </div>${SYNC&&!SYNC.team?teamCard():''}</div>
     <div>
     <div class="card"><h2>Backup &amp; export</h2>
       <div class="stack" style="margin-top:10px">
@@ -710,10 +730,20 @@ function renderSettings(){
       <p class="muted small" style="margin:10px 0 0">The Excel file has the issue log, this quarter's inspection, projects and parts, ready to hand to a manager.</p>
     </div>
     <div class="card" style="margin-top:14px"><h2>This device</h2>
-      <p class="muted small">${DB?`${DB.issues.length} issues, ${DB.parts.length} parts. Last change ${fmtTS(DB.updated)}.`:'No data on this device yet.'}</p>
+      <p class="muted small">${DB?`${DB.issues.length} issues, ${DB.parts.length} parts. Last change ${fmtTS(DB.updated)}${DB.updatedBy?' by '+esc(DB.updatedBy):''}.`:'No data on this device yet.'}</p>
       <button class="btn danger" data-act="reset" ${DB?'':'disabled'}>Erase data on this device</button>
     </div></div></div>`;
 }
+
+function teamCard(){return `<div class="card" style="margin-top:14px"><h2>Team access</h2>
+  <p class="muted small" style="margin:6px 0 0">Let coworkers open the tracker with one shared password. This creates a <b>team.json</b> file that holds your sync settings, locked with the password. Upload it to your <b>website</b> repository next to index.html. Anyone who opens the site will be asked for the password.</p>
+  <form data-submit="team" autocomplete="off">
+    <label>Team password<input name="pw" type="password" required minlength="10" autocomplete="new-password" placeholder="3–4 random words works well"></label>
+    <label>Type it again<input name="pw2" type="password" required autocomplete="new-password"></label>
+    <div id="teamMsg"></div>
+    <button class="btn primary" style="width:100%;margin-top:14px" type="submit">Create team.json</button>
+  </form>
+  <p class="muted small" style="margin:10px 0 0">To lock someone out later: make a new access token on GitHub, delete the old one, reconnect here, then create a new team.json with a new password.</p></div>`;}
 
 /* ================= Sheets, toast ================= */
 const SHEET=document.getElementById('sheet'),SCRIM=document.getElementById('scrim');
@@ -722,7 +752,7 @@ function openSheet(title,body,ctx={},modal=false){CTX=ctx;SHEET_MODAL=modal;
   SHEET.innerHTML=`<div class="grab"></div><div class="sheet-head"><h2>${title}</h2>${modal?'':'<button class="x" data-act="close-sheet" aria-label="Close">×</button>'}</div>${body}`;
   SHEET.hidden=false;SCRIM.hidden=false;SHEET.scrollTop=0;document.body.style.overflow='hidden';
   const f=SHEET.querySelector('[autofocus]');if(f&&matchMedia('(min-width:640px)').matches)f.focus();}
-function closeSheet(force){if(SHEET_MODAL&&!force)return;SHEET.hidden=true;SCRIM.hidden=true;SHEET.innerHTML='';document.body.style.overflow='';SHEET_MODAL=false;}
+function closeSheet(force){if(SHEET_MODAL&&!force)return;SHEET.hidden=true;SCRIM.hidden=true;SHEET.innerHTML='';document.body.style.overflow='';SHEET_MODAL=false;if(typeof PENDING_RENDER!=='undefined'&&PENDING_RENDER){PENDING_RENDER=false;setTimeout(render,0);}}
 SCRIM.addEventListener('click',()=>closeSheet());
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet();});
 let toastTimer;
@@ -821,7 +851,10 @@ const ACT={
   'proj-set':el=>{const v=el.dataset.v==='today'?todayISO():el.dataset.v;setProj(CTX.room,CTX.k,v);},
   'export-json':()=>{download(new Blob([JSON.stringify(DB,null,1)],{type:'application/json'}),`maintenance-backup-${todayISO()}.json`);},
   'export-xlsx':el=>exportExcel(el),
-  'reset':()=>{if(!confirm('Erase all tracker data stored in this browser? Anything already synced to GitHub stays there.'))return;DB=null;META={dirty:false,sha:null,lastSync:null};lsDel(LS.data);persist();lsDel(LS.data);render();},
+  'reset':()=>{if(!confirm('Erase all tracker data stored in this browser? Anything already synced to GitHub stays there.'))return;DB=null;META={dirty:false,sha:null,lastSync:null};BASE=null;lsDel(LS.base);persist();lsDel(LS.data);render();},
+  'sign-out':async()=>{if(META.dirty){clearTimeout(SYNC_TIMER);await run(doPush);}
+    if(!confirm(META.dirty?'Some changes haven’t reached GitHub yet and will be lost. Sign out anyway?':'Sign out of the tracker on this device? You’ll need the team password to get back in.'))return;
+    signOutLocal('');render();},
   'sync-now':()=>{run(doPull);},
   'sync-off':()=>{if(META.dirty&&!confirm('Some changes on this device have not reached GitHub yet. Disconnect anyway? (They stay on this device.)'))return;SYNC=null;lsDel(LS.sync);META.sha=null;persist();setSync('off');render();},
   'conflict':el=>{const f=CONFLICT_RESOLVE;CONFLICT_RESOLVE=null;closeSheet(true);if(f)f(el.dataset.v);},
@@ -845,15 +878,31 @@ document.addEventListener('change',e=>{const el=e.target.closest('[data-change]'
 document.addEventListener('input',e=>{if(e.target.dataset.input==='search'){SEARCH=e.target.value;renderIssueList();}});
 
 const SUBMIT={
+  unlock:async f=>{const o=Object.fromEntries(new FormData(f));const msg=document.getElementById('unlockMsg');const btn=f.querySelector('[type=submit]');
+    btn.disabled=true;btn.textContent='Unlocking…';msg.innerHTML='';
+    try{const cfg=await openSealed(TEAM,o.pw);
+      PREFS.initials=(o.initials||'').trim().toUpperCase();savePrefs();LOCK_MSG='';
+      SYNC={owner:cfg.owner,repo:cfg.repo,path:cfg.path,token:cfg.token,team:true};lsSet(LS.sync,SYNC);
+      DB=null;BASE=null;lsDel(LS.base);META={dirty:false,sha:null,lastSync:null};persist();lsDel(LS.data);
+      render();await run(doPull);render();
+    }catch(e){msg.innerHTML=`<div class="note-box err">${esc(e.message)}</div>`;btn.disabled=false;btn.textContent='Unlock';}},
+  team:async f=>{const o=Object.fromEntries(new FormData(f));const msg=document.getElementById('teamMsg');const bad=t=>{msg.innerHTML=`<div class="note-box err">${t}</div>`;};
+    if(o.pw!==o.pw2)return bad('The two passwords don’t match.');
+    if(o.pw.length<10)return bad('Use at least 10 characters. Three or four random words works well.');
+    const btn=f.querySelector('[type=submit]');btn.disabled=true;btn.textContent='Locking…';
+    try{const sealed=await seal({owner:SYNC.owner,repo:SYNC.repo,path:SYNC.path,token:SYNC.token},o.pw);
+      download(new Blob([JSON.stringify(sealed,null,1)],{type:'application/json'}),'team.json');f.reset();
+      msg.innerHTML='<div class="note-box">Downloaded <b>team.json</b>. Upload it to your website repository (the public one) next to index.html, then share the site link and the password.</div>';
+    }catch(e){bad(esc(e.message));}finally{btn.disabled=false;btn.textContent='Create team.json';}},
   issue:f=>{const o=Object.fromEntries(new FormData(f));let it=CTX.id?DB.issues.find(x=>x.id===CTX.id):null;const isNew=!it;
-    if(isNew){it={id:DB.nextId++,pm:CTX.pm||null};DB.issues.push(it);}
+    if(isNew){it={id:DB.nextId++,uid:rid(),by:PREFS.initials||'',pm:CTX.pm||null};DB.issues.push(it);}
     Object.assign(it,{room:o.room,area:o.area||'',issue:(o.issue||'').trim(),priority:o.priority||'Normal',status:o.status||'Open',tools:(o.tools||'').trim(),buy:(o.buy||'').trim(),found:o.found||todayISO(),done:o.done||'',notes:(o.notes||'').trim()});
     if(it.status==='Done'&&!it.done)it.done=todayISO();
     if(it.status!=='Done')it.done='';
     if(isNew&&it.pm&&it.pm.q){const rec=ensurePM(it.pm.q,it.room);rec.v[it.pm.i]='!';touchPM(rec);}
     closeSheet();commit(isNew?`Issue #${it.id} added`:'Saved');},
   part:f=>{const o=Object.fromEntries(new FormData(f));let p=CTX.id?DB.parts.find(x=>x.id===CTX.id):null;const isNew=!p;
-    if(isNew){p={id:DB.nextPartId++};DB.parts.push(p);}
+    if(isNew){p={id:DB.nextPartId++,uid:rid()};DB.parts.push(p);}
     Object.assign(p,{item:o.item.trim(),qty:o.qty.trim(),for:o.for.trim(),status:o.status||'Need',cost:o.cost.trim(),notes:o.notes.trim()});closeSheet();commit(isNew?'Part added':'Saved');},
   connect:async f=>{
     const o=Object.fromEntries(new FormData(f));const cfg={owner:o.owner.trim(),repo:o.repo.trim(),path:o.path.trim().replace(/^\/+/,''),token:o.token.trim()};
@@ -882,8 +931,8 @@ const ghHeaders=t=>({'Accept':'application/vnd.github+json','Authorization':'Bea
 const contentsURL=()=>`${GH}/repos/${encodeURIComponent(SYNC.owner)}/${encodeURIComponent(SYNC.repo)}/contents/${SYNC.path.split('/').map(encodeURIComponent).join('/')}`;
 function b64enc(str){const bytes=new TextEncoder().encode(str);let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(bin);}
 function b64dec(b64){const bin=atob(String(b64).replace(/\s/g,''));const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return new TextDecoder().decode(bytes);}
-async function ghErr(res,what){
-  let m='';try{m=(await res.json()).message||'';}catch(e){}
+async function ghErr(res,what){const e=ghErrMsg(res,what,await res.json().then(j=>j.message||'',()=>''));e.status=res.status;return e;}
+function ghErrMsg(res,what,m){
   if(res.status===401)return new Error('GitHub rejected the token. It may be mistyped or expired.');
   if(res.status===403&&res.headers.get('x-ratelimit-remaining')==='0')return new Error('GitHub rate limit hit. Try again in a few minutes.');
   if(res.status===403)return new Error('The token can’t write to this repository. Give it “Contents: Read and write” access.');
@@ -892,38 +941,70 @@ async function ghErr(res,what){
 }
 let QUEUE=Promise.resolve(),SYNC_TIMER=null,CONFLICT_RESOLVE=null;
 function run(task){QUEUE=QUEUE.then(()=>SYNC?task():null).catch(syncFail);return QUEUE;}
-function syncFail(e){if(e instanceof TypeError)setSync('offline','No connection. Changes are saved on this device and will sync later.');else setSync('error',e.message);}
+function signOutLocal(msg){SYNC=null;DB=null;BASE=null;META={dirty:false,sha:null,lastSync:null};LOCK_MSG=msg||'';clearTimeout(SYNC_TIMER);
+  lsDel(LS.sync);lsDel(LS.data);lsDel(LS.base);lsSet(LS.meta,META);setSync('off');}
+function syncFail(e){if(e&&e.status===401&&SYNC&&SYNC.team){signOutLocal('The team password has changed (or access expired). Ask for the new password.');closeSheet(true);render();return;}
+  if(e instanceof TypeError)setSync('offline','No connection. Changes are saved on this device and will sync later.');else setSync('error',e.message);}
 function scheduleSync(){if(!SYNC){setSync('off');return;}setSync('pending');clearTimeout(SYNC_TIMER);SYNC_TIMER=setTimeout(()=>run(doPush),2500);}
 function flushSync(){if(SYNC&&META.dirty){clearTimeout(SYNC_TIMER);run(doPush);}}
+const snap=d=>JSON.parse(JSON.stringify(d));
+function setBase(d){BASE=snap(d);lsSet(LS.base,BASE);}
 async function doPull(depth=0){
   setSync('syncing');
   const res=await fetch(contentsURL(),{cache:'no-store',headers:ghHeaders(SYNC.token)});
-  if(res.status===404){if(DB){META.sha=null;return doPush(depth);}setSync('ok','No data file in the repository yet.');return;}
+  if(res.status===404){if(DB){META.sha=null;return doPush(depth);}setSync('ok','No data file in the repository yet.');render();return;}
   if(!res.ok)throw await ghErr(res);
   const j=await res.json();
   if(j.sha===META.sha){if(META.dirty)return doPush(depth);markSynced();return;}
   let remote;
   if(j.content)remote=normalize(JSON.parse(b64dec(j.content)));
   else{const raw=await fetch(contentsURL(),{cache:'no-store',headers:Object.assign(ghHeaders(SYNC.token),{'Accept':'application/vnd.github.raw+json'})});if(!raw.ok)throw await ghErr(raw);remote=normalize(await raw.json());}
-  if(!META.dirty||!DB){DB=remote;META.sha=j.sha;META.dirty=false;markSynced();render();return;}
+  if(!META.dirty||!DB){DB=remote;META.sha=j.sha;META.dirty=false;setBase(remote);markSynced();safeRender();return;}
+  if(BASE){ // someone else saved while this device had changes: combine both
+    DB=mergeDB(BASE,DB,remote);META.sha=j.sha;setBase(remote);persist();safeRender();return doPush(depth);}
   const choice=await askConflict(remote);
-  if(choice==='remote'){DB=remote;META.sha=j.sha;META.dirty=false;markSynced();render();}
-  else{META.sha=j.sha;return doPush(depth);}
+  if(choice==='remote'){DB=remote;META.sha=j.sha;META.dirty=false;setBase(remote);markSynced();render();}
+  else{META.sha=j.sha;setBase(remote);return doPush(depth);}
 }
 async function doPush(depth=0){
   if(!DB||!SYNC)return;
   setSync('syncing');
-  const stamp=DB.updated;
-  const body={message:`Tracker update ${new Date().toLocaleString()}`,content:b64enc(JSON.stringify(DB,null,1))};
+  const stamp=DB.updated,text=JSON.stringify(DB,null,1);
+  const body={message:`${PREFS.initials||'Tracker'}: update ${new Date().toLocaleString()}`,content:b64enc(text)};
   if(META.sha)body.sha=META.sha;
   const res=await fetch(contentsURL(),{method:'PUT',cache:'no-store',headers:Object.assign(ghHeaders(SYNC.token),{'Content-Type':'application/json'}),body:JSON.stringify(body)});
-  if((res.status===409||res.status===422)&&depth<2)return doPull(depth+1);
+  if((res.status===409||res.status===422)&&depth<3)return doPull(depth+1);
   if(!res.ok)throw await ghErr(res);
-  const j=await res.json();META.sha=j.content.sha;
+  const j=await res.json();META.sha=j.content.sha;setBase(JSON.parse(text));
   if(DB.updated===stamp)META.dirty=false;
   markSynced();
   if(META.dirty)scheduleSync();
 }
+/* 3-way merge: base = last version both sides agreed on. Field by field, keep whichever side changed it;
+   if both changed the same field, this device wins. Issues/parts are matched by uid. */
+const isObj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+function deepEq(a,b){if(a===b)return true;if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b))return false;const ka=Object.keys(a),kb=Object.keys(b);return ka.length===kb.length&&ka.every(k=>deepEq(a[k],b[k]));}
+function merge3(b,l,r){
+  if(deepEq(l,r))return l;if(deepEq(l,b))return r;if(deepEq(r,b))return l;
+  if(isObj(l)&&isObj(r)){const bb=isObj(b)?b:{},out={};for(const k of new Set([...Object.keys(bb),...Object.keys(l),...Object.keys(r)])){const v=merge3(bb[k],l[k],r[k]);if(v!==undefined)out[k]=v;}return out;}
+  return l;
+}
+function mergeDB(b,l,r){
+  const byUid=a=>{const m={};(a||[]).forEach(x=>{m[x.uid]=x;});return m;};
+  const prep=d=>Object.assign({},d,{issues:byUid(d.issues),parts:byUid(d.parts)});
+  const m=snap(merge3(prep(normalize(b)),prep(l),prep(r)));
+  m.issues=Object.values(m.issues||{});m.parts=Object.values(m.parts||{});
+  const renumber=(list,remote)=>{const keep=new Set((remote||[]).map(x=>x.uid));list.sort((a,c)=>(keep.has(c.uid)-keep.has(a.uid))||a.id-c.id);
+    const used=new Set();let max=Math.max(0,...list.map(x=>x.id));for(const x of list){if(used.has(x.id))x.id=++max;used.add(x.id);}list.sort((a,c)=>a.id-c.id);};
+  renumber(m.issues,r.issues);renumber(m.parts,r.parts);
+  m.nextId=Math.max(l.nextId||1,r.nextId||1);m.nextPartId=Math.max(l.nextPartId||1,r.nextPartId||1);
+  return normalize(m);
+}
+/* don't yank the page out from under someone typing */
+let PENDING_RENDER=false;
+function busy(){const a=document.activeElement;return !SHEET.hidden||(a&&VIEW.contains(a)&&a.matches('input,textarea,select'));}
+function safeRender(){if(busy()){PENDING_RENDER=true;return;}render();}
+document.addEventListener('focusout',()=>setTimeout(()=>{if(PENDING_RENDER&&!busy()){PENDING_RENDER=false;render();}},0));
 function markSynced(){META.lastSync=new Date().toISOString();persist();setSync(META.dirty?'pending':'ok');}
 function askConflict(remote){return new Promise(res=>{CONFLICT_RESOLVE=res;setSync('conflict');
   openSheet('Two versions found',`<p>This device has changes that haven’t reached GitHub, and GitHub has a different version (probably from your other device).</p>
@@ -932,7 +1013,7 @@ function askConflict(remote){return new Promise(res=>{CONFLICT_RESOLVE=res;setSy
     <p class="muted small">Tip: download a backup first from Settings if you’re unsure. Every sync is also saved in the repository’s commit history.</p>`,{},true);});}
 function syncText(){return ({off:'This device',pending:'Saving…',syncing:'Syncing…',ok:'Synced',offline:'Offline',error:'Sync error',conflict:'Needs you'})[SYNC_STATE.s]||'';}
 function setSync(s,msg=''){SYNC_STATE={s,msg};updateSyncBadge();}
-function updateSyncBadge(){const el=document.getElementById('sync');const s=SYNC?SYNC_STATE.s:'off';el.dataset.s=s;document.getElementById('syncText').textContent=SYNC?syncText():(DB?'This device only':'Not set up');el.title=SYNC_STATE.msg||'';}
+function updateSyncBadge(){const el=document.getElementById('sync');const s=SYNC?SYNC_STATE.s:'off';el.dataset.s=s;document.getElementById('syncText').textContent=SYNC?syncText():(DB?'This device only':(TEAM?'Locked':'Not set up'));el.title=SYNC_STATE.msg||'';}
 document.addEventListener('visibilitychange',()=>{if(!SYNC)return;if(document.hidden)flushSync();else run(doPull);});
 window.addEventListener('online',()=>{if(SYNC)run(doPull);});
 window.addEventListener('pagehide',flushSync);
@@ -946,7 +1027,7 @@ async function exportExcel(btn){
     const X=window.XLSX,wb=X.utils.book_new(),q=viewQ();
     const add=(name,rows,widths)=>{const ws=Array.isArray(rows[0])?X.utils.aoa_to_sheet(rows):X.utils.json_to_sheet(rows);if(widths)ws['!cols']=widths.map(w=>({wch:w}));X.utils.book_append_sheet(wb,ws,name);};
     const iss=[...DB.issues].sort((a,b)=>ordIdx(a.room)-ordIdx(b.room)||isOpen(b)-isOpen(a)||a.id-b.id);
-    add('Issue Log',iss.length?iss.map(i=>({'Room':i.room,'ID':i.id,'Date Found':fmtDate(i.found,1),'Area':i.area,'Issue':i.issue,'Priority':i.priority,'Status':i.status,'Tools / Parts Needed':i.tools,'Need to Buy':i.buy,'Date Done':fmtDate(i.done,1),'Days Open':daysOpen(i),'Notes':i.notes})):[['No issues']],[8,5,11,11,48,9,15,24,20,11,9,30]);
+    add('Issue Log',iss.length?iss.map(i=>({'Room':i.room,'ID':i.id,'Date Found':fmtDate(i.found,1),'Area':i.area,'Issue':i.issue,'Priority':i.priority,'Status':i.status,'Tools / Parts Needed':i.tools,'Need to Buy':i.buy,'Date Done':fmtDate(i.done,1),'Days Open':daysOpen(i),'Notes':i.notes,'Reported By':i.by||''})):[['No issues']],[8,5,11,11,48,9,15,24,20,11,9,30,11]);
     add(('Inspection '+qLabel(q)).slice(0,31),ROOMS.map(r=>{const rec=pmRec(q,r)||{};return {'Room':r,'Status':pmStateLabel[pmState(q,r)],'% Complete':pct(pmPct(q,r)),'Date Inspected':fmtDate(rec.date,1),'Inspected By':rec.by||''};}),[8,13,11,14,12]);
     const det=[['Item',...ROOMS]];CHECKLIST.forEach(([sec],s)=>{det.push([sec.toUpperCase()]);ITEMS.filter(x=>x.s===s).forEach(x=>det.push([x.label,...ROOMS.map(r=>{const v=((pmRec(q,r)||{}).v||{})[x.i]||'';return v==='!'?'Issue':v;})]));});
     add('Inspection Detail',det,[46,...ROOMS.map(()=>5)]);
@@ -956,9 +1037,25 @@ async function exportExcel(btn){
   }catch(e){alert(e.message);}finally{btn.disabled=false;btn.textContent=label;}
 }
 
+/* ================= Team password =================
+   team.json = the sync settings encrypted with AES-GCM, key from the password via PBKDF2 (600k rounds). */
+const bytesToB64=u=>{let s='';for(let i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s);};
+const b64ToBytes=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+function needCrypto(){if(!(window.crypto&&crypto.subtle))throw new Error('This browser can’t do encryption here. Open the site over https.');}
+async function pwKey(pw,salt,iter){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
+async function seal(obj,pw){needCrypto();const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),iter=600000;
+  const key=await pwKey(pw,salt,iter);const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(obj))));
+  return {type:'maintenance-team',v:1,kdf:'PBKDF2-SHA256',iter,salt:bytesToB64(salt),iv:bytesToB64(iv),ct:bytesToB64(ct)};}
+async function openSealed(t,pw){needCrypto();const key=await pwKey(pw,b64ToBytes(t.salt),t.iter||600000);let pt;
+  try{pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64ToBytes(t.iv)},key,b64ToBytes(t.ct));}catch(e){throw new Error('Wrong password.');}
+  return JSON.parse(new TextDecoder().decode(pt));}
+
 /* ================= Boot ================= */
 render();
+fetch('team.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{TEAM=j&&j.ct?j:null;},()=>{TEAM=null;}).then(()=>{if(!DB&&!SYNC)render();else updateSyncBadge();});
 if(SYNC)run(doPull);
+setInterval(()=>{if(SYNC&&!document.hidden&&!META.dirty)run(doPull);},60000);
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
